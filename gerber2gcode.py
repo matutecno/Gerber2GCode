@@ -20,7 +20,7 @@ import math
 from pathlib import Path
 from shapely.geometry import Polygon, MultiPolygon, LineString, Point, box
 from shapely.ops import unary_union
-from shapely.affinity import scale as shapely_scale, translate as shapely_translate
+from shapely.affinity import scale as shapely_scale, translate as shapely_translate, rotate as shapely_rotate
 from gerbonara import GerberFile
 from gerbonara.utils import MM
 
@@ -96,14 +96,23 @@ def _primitive_to_shapely(prim):
         return Point(prim.x, prim.y).buffer(prim.r)
     if cls == 'Rectangle':
         x, y, w, h = prim.x, prim.y, prim.w, prim.h
-        return Polygon([
+        poly = Polygon([
             (x - w/2, y - h/2), (x + w/2, y - h/2),
             (x + w/2, y + h/2), (x - w/2, y + h/2),
         ])
+        if hasattr(prim, 'rotation') and abs(prim.rotation) > 1e-6:
+            poly = shapely_rotate(poly, math.degrees(prim.rotation), origin=(x, y))
+        return poly
     if hasattr(prim, 'outline'):
-        pts = list(zip(prim.outline[0::2], prim.outline[1::2]))
+        outline = prim.outline
+        # ArcPoly.outline es lista de tuplas (x, y); otros pueden ser lista plana [x, y, x, y...]
+        if outline and isinstance(outline[0], (tuple, list)):
+            pts = [tuple(p) for p in outline]
+        else:
+            pts = list(zip(outline[0::2], outline[1::2]))
         if len(pts) >= 3:
-            return Polygon(pts)
+            poly = Polygon(pts)
+            return poly.buffer(0) if not poly.is_valid else poly
     if hasattr(prim, 'coords'):
         try:
             pts = list(prim.coords)
