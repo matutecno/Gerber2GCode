@@ -36,9 +36,9 @@ MIRROR_X      = True    # True para B_Cu: espeja horizontalmente antes de genera
 VBIT_TIP_MM       = 0.1     # diámetro de la punta de la V-bit (mm)
 VBIT_ANGLE_DEG    = 20      # ángulo total de la V-bit (grados)
 PASS_OVERLAP_FRAC = 0.3     # solapado entre pasadas
-CUT_DEPTH_MM      = -0.1  # profundidad de corte (Z negativo)
+CUT_DEPTH_MM      = -0.06  # profundidad de corte (Z negativo)
 PLUNGE_RATE       = 80    # velocidad de bajada (mm/min)
-FEED_RATE         = 1300     # velocidad de corte (mm/min)
+FEED_RATE         = 350    # velocidad de corte (mm/min)
 OVERSHOOT_MM      = 1.0     # sobreextensión al cierre de cada contorno (mm)
 
 # CONFIG LÁSER (estándar GRBL)
@@ -192,25 +192,22 @@ def compute_mill_paths(copper_geom, tool_radius: float, clearance: float) -> lis
     print(f"    offsets             = {[f'{o:.3f}' for o in offsets]}")
 
     paths = []
-    polys = list(copper_geom.geoms) if isinstance(copper_geom, MultiPolygon) else [copper_geom]
 
-    for poly in polys:
-        if not isinstance(poly, Polygon) or poly.is_empty:
+    for offset_dist in offsets:
+        # Bufferizar la geometría completa (no polígono por polígono).
+        # Si se bufferiza cada polígono por separado, el buffer de un pad
+        # puede invadir el territorio de otro pad adyacente y el contorno
+        # resultante cruza a través del cobre. Bufferizando el union completo,
+        # los pads cercanos fusionan sus buffers y el contorno queda en el gap.
+        result = copper_geom.buffer(offset_dist, join_style=2, cap_style=2)
+        if result is None or result.is_empty:
             continue
-        for offset_dist in offsets:
-            result = poly.buffer(offset_dist, join_style=2, cap_style=2)
-            if result is None or result.is_empty:
-                continue
-            for sp in (list(result.geoms) if isinstance(result, MultiPolygon) else [result]):
-                if isinstance(sp, Polygon) and not sp.is_empty:
-                    paths.append(list(sp.exterior.coords))
-            for interior in poly.interiors:
-                hole_result = Polygon(interior).buffer(-offset_dist, join_style=2, cap_style=2)
-                if hole_result is None or hole_result.is_empty:
-                    continue
-                for hp in (list(hole_result.geoms) if isinstance(hole_result, MultiPolygon) else [hole_result]):
-                    if isinstance(hp, Polygon) and not hp.is_empty:
-                        paths.append(list(hp.exterior.coords))
+        for sp in (list(result.geoms) if isinstance(result, MultiPolygon) else [result]):
+            if isinstance(sp, Polygon) and not sp.is_empty:
+                paths.append(list(sp.exterior.coords))
+                # Interiors: islas de no-cobre encerradas dentro del cobre expandido
+                for interior in sp.interiors:
+                    paths.append(list(interior.coords))
 
     print(f"    → {len(paths)} path(s) total")
     return paths
