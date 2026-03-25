@@ -70,6 +70,14 @@ class GenerationWorker(threading.Thread):
                 "paths": result['paths'],
             })
 
+            # Send drill holes and slots for preview
+            if result.get('holes') or result.get('slots'):
+                self.queue.put({
+                    "type": "drills",
+                    "holes": result.get('holes', {}),
+                    "slots": result.get('slots', []),
+                })
+
             # Done
             self.queue.put({
                 "type": "done",

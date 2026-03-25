@@ -25,6 +25,10 @@ COPPER_COLOR = '#DAA520'
 PATH_COLOR = '#FF4444'
 TICK_COLOR = '#888888'
 
+# Distinct colors per drill diameter (cycles if more than 6 sizes)
+DRILL_COLORS = ['#00BFFF', '#00FF7F', '#FF69B4', '#FF8C00', '#DA70D6', '#7FFF00']
+SLOT_COLOR   = '#FFA500'
+
 
 def _polygon_to_patch(poly: Polygon, **kwargs):
     """Convert a shapely Polygon (with holes) to a matplotlib PathPatch."""
@@ -126,4 +130,48 @@ class PreviewPanel(ttk.Frame):
             xs = [p[0] for p in path]
             ys = [p[1] for p in path]
             self.ax.plot(xs, ys, color=PATH_COLOR, linewidth=0.7, alpha=0.8)
+        self._tk_canvas.draw_idle()
+
+    def show_drills(self, holes: dict, slots: list):
+        """Overlay drill holes (circles per diameter) and slots (rectangles).
+
+        holes: {diam_mm: [(x, y), ...]}
+        slots: [(x1, y1, x2, y2, diam_mm), ...]
+        """
+        if not _MPL_OK:
+            return
+
+        import math
+
+        sorted_diams = sorted(holes.keys())
+        for idx, diam in enumerate(sorted_diams):
+            color = DRILL_COLORS[idx % len(DRILL_COLORS)]
+            radius = diam / 2.0
+            pts = holes[diam]
+            # Draw all holes of this diameter as circles
+            for x, y in pts:
+                circle = mpatches.Circle(
+                    (x, y), radius,
+                    facecolor='none', edgecolor=color,
+                    linewidth=0.8, alpha=0.9, zorder=3,
+                )
+                self.ax.add_patch(circle)
+            # Legend entry (one proxy per diameter)
+            self.ax.plot([], [], 'o', markerfacecolor='none',
+                         markeredgecolor=color, markersize=6,
+                         label=f'ø{diam:.2f} mm ({len(pts)})')
+
+        for x1, y1, x2, y2, diam in slots:
+            # Draw slot as a thick line segment
+            self.ax.plot([x1, x2], [y1, y2],
+                         color=SLOT_COLOR, linewidth=diam * 2,
+                         solid_capstyle='round', alpha=0.7, zorder=3)
+
+        if sorted_diams or slots:
+            self.ax.legend(
+                fontsize=7, framealpha=0.4,
+                facecolor='#2a2a2a', edgecolor='#555555',
+                labelcolor='white', loc='upper right',
+            )
+
         self._tk_canvas.draw_idle()

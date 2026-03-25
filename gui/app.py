@@ -195,6 +195,9 @@ class App:
                 elif mtype == 'paths':
                     self.preview_panel.show_paths(msg['paths'])
 
+                elif mtype == 'drills':
+                    self.preview_panel.show_drills(msg['holes'], msg['slots'])
+
                 elif mtype == 'done':
                     self._on_done(msg)
                     return

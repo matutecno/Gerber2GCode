@@ -677,7 +677,7 @@ def process_drill_files(drl_paths: list, output_stem: str,
     else:
         (progress_cb or print)("[slots] No se encontraron ranuras.")
 
-    return drill_files, slots_file
+    return drill_files, slots_file, all_holes, all_slots
 
 
 # ─────────────────────────────────────────────
@@ -723,6 +723,8 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
     _, _, board_w, board_h = copper.bounds
     clearance = None
     paths = []
+    _drill_holes = {}   # {diam: [(x,y), ...]} — populated below if drills present
+    _drill_slots = []   # [(x1,y1,x2,y2,diam), ...]
 
     if cfg.MODE == "mill":
         d_eff = effective_tool_diameter(cfg)
@@ -762,7 +764,7 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         output_stem = str(Path(output_path).with_suffix(''))
         (progress_cb or print)("")
         drill_cx = board_w / 2.0 if cfg.MIRROR_X else None
-        drill_files, slots_file = process_drill_files(
+        drill_files, slots_file, _drill_holes, _drill_slots = process_drill_files(
             drl_paths, output_stem, cx=drill_cx, offset=(0.0, 0.0),
             cfg=cfg, progress_cb=progress_cb
         )
@@ -796,6 +798,8 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         'board_w': board_w,
         'board_h': board_h,
         'clearance': clearance,
+        'holes': _drill_holes,
+        'slots': _drill_slots,
     }
 
 
