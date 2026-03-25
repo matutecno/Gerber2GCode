@@ -17,52 +17,89 @@ Modos:
 import sys
 import re
 import math
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Optional
 from shapely.geometry import Polygon, MultiPolygon, LineString, Point, box
 from shapely.ops import unary_union
 from shapely.affinity import scale as shapely_scale, translate as shapely_translate, rotate as shapely_rotate
 from gerbonara import GerberFile
 from gerbonara.utils import MM
 
+
 # ─────────────────────────────────────────────
-# CONFIG GENERAL
+# CONFIG DATACLASS
 # ─────────────────────────────────────────────
-MODE          = "mill"  # "mill" o "laser"
-SAFE_Z_MM     = 1.500   # altura de viaje segura (solo fresa)
-CLEARANCE_MM  = None    # clearance manual en mm, o None para auto-detectar
-MIRROR_X      = True    # True para B_Cu: espeja horizontalmente antes de generar G-code
 
-# CONFIG FRESA
-VBIT_TIP_MM       = 0.1     # diámetro de la punta de la V-bit (mm)
-VBIT_ANGLE_DEG    = 20      # ángulo total de la V-bit (grados)
-PASS_OVERLAP_FRAC = 0.3     # solapado entre pasadas
-CUT_DEPTH_MM      = -0.06  # profundidad de corte (Z negativo)
-PLUNGE_RATE       = 80    # velocidad de bajada (mm/min)
-FEED_RATE         = 350    # velocidad de corte (mm/min)
-OVERSHOOT_MM      = 1.0     # sobreextensión al cierre de cada contorno (mm)
+@dataclass
+class Config:
+    # CONFIG GENERAL
+    MODE: str          = "mill"   # "mill" o "laser"
+    SAFE_Z_MM: float   = 1.500    # altura de viaje segura (solo fresa)
+    CLEARANCE_MM: Optional[float] = None  # clearance manual en mm, o None para auto-detectar
+    MIRROR_X: bool     = True     # True para B_Cu: espeja horizontalmente antes de generar G-code
 
-# CONFIG LÁSER (estándar GRBL)
-LASER_POWER       = 800     # potencia (S value, 0-1000)
-LASER_FEED_RATE   = 1000    # velocidad de grabado (mm/min)
-LASER_PASS_MM     = 0.05    # distancia entre pasadas concéntricas (mm)
+    # CONFIG FRESA
+    VBIT_TIP_MM: float       = 0.1     # diámetro de la punta de la V-bit (mm)
+    VBIT_ANGLE_DEG: float    = 20      # ángulo total de la V-bit (grados)
+    PASS_OVERLAP_FRAC: float = 0.3     # solapado entre pasadas
+    CUT_DEPTH_MM: float      = -0.06   # profundidad de corte (Z negativo)
+    PLUNGE_RATE: float       = 80      # velocidad de bajada (mm/min)
+    FEED_RATE: float         = 350     # velocidad de corte (mm/min)
+    OVERSHOOT_MM: float      = 1.0     # sobreextensión al cierre de cada contorno (mm)
 
-# CONFIG TALADRADO
-DRILL_SIZES       = [0.8, 1.0, 1.25, 3.0]  # brocas disponibles (mm) — cada agujero se redondea a la inmediata superior
-DRILL_SAFE_Z_MM   = 1.0     # altura de viaje segura
-DRILL_DEPTH_MM    = -1.6    # profundidad de taladrado (Z negativo)
-DRILL_FEED_RATE   = 50      # velocidad de taladrado (mm/min)
+    # CONFIG LÁSER (estándar GRBL)
+    LASER_POWER: int         = 800     # potencia (S value, 0-1000)
+    LASER_FEED_RATE: float   = 1000    # velocidad de grabado (mm/min)
+    LASER_PASS_MM: float     = 0.05    # distancia entre pasadas concéntricas (mm)
 
-# CONFIG MARCAS DE REFERENCIA
-REF_MARK_DEPTH_MM = -0.15   # profundidad de corte de la cruz (solo visible, no pasante)
-REF_CROSS_MM      = 3.0     # longitud total del brazo de la cruz "+" (mm)
-REF_OFFSET_MM     = 2.0     # distancia desde el borde del PCB al centro de la cruz (mm)
+    # CONFIG TALADRADO
+    DRILL_SIZES: List[float] = field(default_factory=lambda: [0.8, 1.0, 1.25, 3.0])
+    DRILL_SAFE_Z_MM: float   = 1.0     # altura de viaje segura
+    DRILL_DEPTH_MM: float    = -1.6    # profundidad de taladrado (Z negativo)
+    DRILL_FEED_RATE: float   = 50      # velocidad de taladrado (mm/min)
 
-# CONFIG RANURAS
-SLOT_TOOL_MM      = 0.8     # diámetro real de la fresa usada para ranuras
-SLOT_DEPTH_MM     = -1.6    # profundidad de ranuras (Z negativo)
-SLOT_PLUNGE_RATE  = 30      # velocidad de bajada en ranuras (mm/min)
-SLOT_FEED_RATE    = 80      # velocidad de corte en ranuras (mm/min)
+    # CONFIG MARCAS DE REFERENCIA
+    REF_MARK_DEPTH_MM: float = -0.15   # profundidad de corte de la cruz (solo visible, no pasante)
+    REF_CROSS_MM: float      = 3.0     # longitud total del brazo de la cruz "+" (mm)
+    REF_OFFSET_MM: float     = 0       # distancia desde el borde del PCB al centro de la cruz (mm)
+
+    # CONFIG RANURAS
+    SLOT_TOOL_MM: float      = 0.8     # diámetro real de la fresa usada para ranuras
+    SLOT_DEPTH_MM: float     = -1.6    # profundidad de ranuras (Z negativo)
+    SLOT_PLUNGE_RATE: float  = 30      # velocidad de bajada en ranuras (mm/min)
+    SLOT_FEED_RATE: float    = 80      # velocidad de corte en ranuras (mm/min)
+
+
 # ─────────────────────────────────────────────
+# Legacy module-level CONFIG constants (kept for backward compat)
+# ─────────────────────────────────────────────
+_default_cfg = Config()
+MODE          = _default_cfg.MODE
+SAFE_Z_MM     = _default_cfg.SAFE_Z_MM
+CLEARANCE_MM  = _default_cfg.CLEARANCE_MM
+MIRROR_X      = _default_cfg.MIRROR_X
+VBIT_TIP_MM       = _default_cfg.VBIT_TIP_MM
+VBIT_ANGLE_DEG    = _default_cfg.VBIT_ANGLE_DEG
+PASS_OVERLAP_FRAC = _default_cfg.PASS_OVERLAP_FRAC
+CUT_DEPTH_MM      = _default_cfg.CUT_DEPTH_MM
+PLUNGE_RATE       = _default_cfg.PLUNGE_RATE
+FEED_RATE         = _default_cfg.FEED_RATE
+OVERSHOOT_MM      = _default_cfg.OVERSHOOT_MM
+LASER_POWER       = _default_cfg.LASER_POWER
+LASER_FEED_RATE   = _default_cfg.LASER_FEED_RATE
+LASER_PASS_MM     = _default_cfg.LASER_PASS_MM
+DRILL_SIZES       = _default_cfg.DRILL_SIZES
+DRILL_SAFE_Z_MM   = _default_cfg.DRILL_SAFE_Z_MM
+DRILL_DEPTH_MM    = _default_cfg.DRILL_DEPTH_MM
+DRILL_FEED_RATE   = _default_cfg.DRILL_FEED_RATE
+REF_MARK_DEPTH_MM = _default_cfg.REF_MARK_DEPTH_MM
+REF_CROSS_MM      = _default_cfg.REF_CROSS_MM
+REF_OFFSET_MM     = _default_cfg.REF_OFFSET_MM
+SLOT_TOOL_MM      = _default_cfg.SLOT_TOOL_MM
+SLOT_DEPTH_MM     = _default_cfg.SLOT_DEPTH_MM
+SLOT_PLUNGE_RATE  = _default_cfg.SLOT_PLUNGE_RATE
+SLOT_FEED_RATE    = _default_cfg.SLOT_FEED_RATE
 
 
 def mirror_geometry(geom, cx: float):
@@ -75,10 +112,12 @@ def mirror_point(x: float, cx: float) -> float:
     return 2 * cx - x
 
 
-def effective_tool_diameter() -> float:
+def effective_tool_diameter(cfg: Config = None) -> float:
     """Diámetro efectivo de corte de la V-bit según profundidad y ángulo."""
-    half_angle_rad = math.radians(VBIT_ANGLE_DEG / 2.0)
-    return VBIT_TIP_MM + 2.0 * abs(CUT_DEPTH_MM) * math.tan(half_angle_rad)
+    if cfg is None:
+        cfg = Config()
+    half_angle_rad = math.radians(cfg.VBIT_ANGLE_DEG / 2.0)
+    return cfg.VBIT_TIP_MM + 2.0 * abs(cfg.CUT_DEPTH_MM) * math.tan(half_angle_rad)
 
 
 def load_gerber(path: str) -> GerberFile:
@@ -123,9 +162,9 @@ def _primitive_to_shapely(prim):
     return None
 
 
-def extract_copper_polygons(layer: GerberFile):
+def extract_copper_polygons(layer: GerberFile, progress_cb=None):
     """Extrae geometría de cobre. Retorna (merged, individuals)."""
-    print("[2/4] Extrayendo geometría de cobre ...")
+    (progress_cb or print)("[2/4] Extrayendo geometría de cobre ...")
     individuals = []
     all_shapes  = []
 
@@ -156,11 +195,11 @@ def extract_copper_polygons(layer: GerberFile):
 
     merged = unary_union(all_shapes)
     n = len(merged.geoms) if hasattr(merged, 'geoms') else 1
-    print(f"    → {len(all_shapes)} primitivos, {len(individuals)} objetos → {n} polígono(s) fusionado(s)")
+    (progress_cb or print)(f"    → {len(all_shapes)} primitivos, {len(individuals)} objetos → {n} polígono(s) fusionado(s)")
     return merged, individuals
 
 
-def detect_clearance(individuals: list):
+def detect_clearance(individuals: list, cfg: Config = None):
     """Distancia mínima entre objetos de cobre individuales."""
     if len(individuals) < 2:
         return None
@@ -178,10 +217,13 @@ def detect_clearance(individuals: list):
 # MODO FRESA
 # ─────────────────────────────────────────────
 
-def compute_mill_paths(copper_geom, tool_radius: float, clearance: float) -> list:
+def compute_mill_paths(copper_geom, tool_radius: float, clearance: float,
+                       cfg: Config = None, progress_cb=None) -> list:
     """Iterative buffering hacia afuera del cobre."""
-    d_eff = effective_tool_diameter()
-    step  = d_eff * (1.0 - PASS_OVERLAP_FRAC)
+    if cfg is None:
+        cfg = Config()
+    d_eff = effective_tool_diameter(cfg)
+    step  = d_eff * (1.0 - cfg.PASS_OVERLAP_FRAC)
 
     first_offset = tool_radius
     last_offset  = clearance - tool_radius
@@ -194,52 +236,48 @@ def compute_mill_paths(copper_geom, tool_radius: float, clearance: float) -> lis
         for i in range(n_passes)
     ]
 
-    print(f"[3/4] Fresa — iterative buffering:")
-    print(f"    clearance           = {clearance:.3f} mm")
-    print(f"    diámetro efectivo   = {d_eff:.3f} mm")
-    print(f"    pasadas             = {n_passes}")
-    print(f"    offsets             = {[f'{o:.3f}' for o in offsets]}")
+    (progress_cb or print)(f"[3/4] Fresa — iterative buffering:")
+    (progress_cb or print)(f"    clearance           = {clearance:.3f} mm")
+    (progress_cb or print)(f"    diámetro efectivo   = {d_eff:.3f} mm")
+    (progress_cb or print)(f"    pasadas             = {n_passes}")
+    (progress_cb or print)(f"    offsets             = {[f'{o:.3f}' for o in offsets]}")
 
     paths = []
 
     for offset_dist in offsets:
-        # Bufferizar la geometría completa (no polígono por polígono).
-        # Si se bufferiza cada polígono por separado, el buffer de un pad
-        # puede invadir el territorio de otro pad adyacente y el contorno
-        # resultante cruza a través del cobre. Bufferizando el union completo,
-        # los pads cercanos fusionan sus buffers y el contorno queda en el gap.
         result = copper_geom.buffer(offset_dist, join_style=2, cap_style=2)
         if result is None or result.is_empty:
             continue
         for sp in (list(result.geoms) if isinstance(result, MultiPolygon) else [result]):
             if isinstance(sp, Polygon) and not sp.is_empty:
                 paths.append(list(sp.exterior.coords))
-                # Interiors: islas de no-cobre encerradas dentro del cobre expandido
                 for interior in sp.interiors:
                     paths.append(list(interior.coords))
 
-    print(f"    → {len(paths)} path(s) total")
+    (progress_cb or print)(f"    → {len(paths)} path(s) total")
     return paths
 
 
 def generate_mill_gcode(paths: list, output_path: str, clearance: float,
-                        board_w: float = None, board_h: float = None):
+                        board_w: float = None, board_h: float = None,
+                        cfg: Config = None, progress_cb=None):
     """G-code para fresa, compatible con GRBL."""
-    print(f"[4/4] Generando G-code (fresa) → {output_path} ...")
-    d_eff = effective_tool_diameter()
+    if cfg is None:
+        cfg = Config()
+    (progress_cb or print)(f"[4/4] Generando G-code (fresa) → {output_path} ...")
+    d_eff = effective_tool_diameter(cfg)
     lines = [
         "( Generated by gerber2gcode.py — MODE: mill )",
-        f"( V-bit tip      : {VBIT_TIP_MM} mm, angle: {VBIT_ANGLE_DEG} deg )",
-        f"( Effective diam : {d_eff:.3f} mm at Z={CUT_DEPTH_MM} mm )",
+        f"( V-bit tip      : {cfg.VBIT_TIP_MM} mm, angle: {cfg.VBIT_ANGLE_DEG} deg )",
+        f"( Effective diam : {d_eff:.3f} mm at Z={cfg.CUT_DEPTH_MM} mm )",
         f"( Clearance      : {clearance:.3f} mm )",
         "G17", "G21", "G54", "G90",
-        f"G00 Z{SAFE_Z_MM:.3f}",   # subir a altura segura antes de cualquier movimiento
+        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
     ]
-    # Marcas de referencia en cruz — primero que se ejecuta
     if board_w is not None and board_h is not None:
         lines.append("( ── MARCAS DE REFERENCIA ── )")
-        lines += _cross_gcode(-REF_OFFSET_MM, -REF_OFFSET_MM, "Ref 1 — inferior-izquierda")
-        lines += _cross_gcode(board_w + REF_OFFSET_MM, board_h + REF_OFFSET_MM, "Ref 2 — superior-derecha")
+        lines += _cross_gcode(-cfg.REF_OFFSET_MM, -cfg.REF_OFFSET_MM, "Ref 1 — inferior-izquierda", cfg)
+        lines += _cross_gcode(board_w + cfg.REF_OFFSET_MM, board_h + cfg.REF_OFFSET_MM, "Ref 2 — superior-derecha", cfg)
         lines.append("( ── FRESADO ── )")
     for path in paths:
         if len(path) < 2:
@@ -247,57 +285,51 @@ def generate_mill_gcode(paths: list, output_path: str, clearance: float,
         x0, y0 = path[0]
         lines += [
             f"G00  X{x0:.3f} Y{y0:.3f}",
-            f"G01 F{PLUNGE_RATE} Z0",
-            f"G01 F{PLUNGE_RATE} Z{CUT_DEPTH_MM}",
+            f"G01 F{cfg.PLUNGE_RATE} Z0",
+            f"G01 F{cfg.PLUNGE_RATE} Z{cfg.CUT_DEPTH_MM}",
         ]
         for x, y in path[1:]:
-            lines.append(f"G01 F{FEED_RATE} X{x:.3f} Y{y:.3f}")
-        # Sobreextender OVERSHOOT_MM siguiendo la geometría del contorno
-        # (path es cerrado: path[-1]==path[0], continuamos por path[1], path[2]...)
-        if OVERSHOOT_MM > 0 and len(path) >= 3:
-            remaining = OVERSHOOT_MM
+            lines.append(f"G01 F{cfg.FEED_RATE} X{x:.3f} Y{y:.3f}")
+        if cfg.OVERSHOOT_MM > 0 and len(path) >= 3:
+            remaining = cfg.OVERSHOOT_MM
             px, py = path[-1]
             for nx, ny in path[1:]:
                 seg = math.hypot(nx - px, ny - py)
                 if seg >= remaining:
                     t = remaining / seg
-                    lines.append(f"G01 F{FEED_RATE} X{px + t*(nx-px):.3f} Y{py + t*(ny-py):.3f}")
+                    lines.append(f"G01 F{cfg.FEED_RATE} X{px + t*(nx-px):.3f} Y{py + t*(ny-py):.3f}")
                     break
-                lines.append(f"G01 F{FEED_RATE} X{nx:.3f} Y{ny:.3f}")
+                lines.append(f"G01 F{cfg.FEED_RATE} X{nx:.3f} Y{ny:.3f}")
                 remaining -= seg
                 px, py = nx, ny
                 if remaining <= 0:
                     break
-        lines.append(f"G00 Z{SAFE_Z_MM:.3f}")
-    lines += [f"G00 Z{SAFE_Z_MM:.3f}", "M05", "M30"]
+        lines.append(f"G00 Z{cfg.SAFE_Z_MM:.3f}")
+    lines += [f"G00 Z{cfg.SAFE_Z_MM:.3f}", "M05", "M30"]
     with open(output_path, "w") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"    ✓ {len(lines)} líneas escritas")
+    (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
 
 
 # ─────────────────────────────────────────────
 # MODO LÁSER
 # ─────────────────────────────────────────────
 
-def compute_laser_paths(copper_geom) -> list:
+def compute_laser_paths(copper_geom, cfg: Config = None, progress_cb=None) -> list:
     """
     Contornos concéntricos hacia adentro del área libre (entre pistas).
     El láser quema la pintura en todo el espacio que NO es cobre.
-
-    Estrategia:
-    1. Calcular el bounding box de la placa como área total
-    2. Restar el cobre → área libre
-    3. Hacer shrink iterativo del área libre hacia adentro
-       (equivale a offset interior de los polígonos libres)
     """
-    bounds = copper_geom.buffer(1.0).bounds  # margen de 1mm alrededor
+    if cfg is None:
+        cfg = Config()
+    bounds = copper_geom.buffer(1.0).bounds
     board  = box(*bounds)
     free_area = board.difference(copper_geom)
 
     if free_area.is_empty:
         raise ValueError("No hay área libre entre las pistas.")
 
-    step = LASER_PASS_MM
+    step = cfg.LASER_PASS_MM
     paths = []
     current = free_area
 
@@ -310,101 +342,98 @@ def compute_laser_paths(copper_geom) -> list:
             coords = list(poly.exterior.coords)
             if len(coords) >= 2:
                 paths.append(coords)
-            # huecos internos (islas de cobre dentro del área libre)
             for interior in poly.interiors:
                 paths.append(list(interior.coords))
 
-        # Shrink del área libre (erosión)
         current = current.buffer(-step, join_style=2, cap_style=2)
         if current is None:
             break
         iteration += 1
-        if iteration > 5000:  # safety cap
+        if iteration > 5000:
             break
 
-    print(f"[3/4] Láser — contornos concéntricos:")
-    print(f"    paso entre contornos = {step:.3f} mm")
-    print(f"    contornos generados  = {iteration}")
-    print(f"    → {len(paths)} path(s) total")
+    (progress_cb or print)(f"[3/4] Láser — contornos concéntricos:")
+    (progress_cb or print)(f"    paso entre contornos = {step:.3f} mm")
+    (progress_cb or print)(f"    contornos generados  = {iteration}")
+    (progress_cb or print)(f"    → {len(paths)} path(s) total")
     return paths
 
 
-def generate_laser_gcode(paths: list, output_path: str):
+def generate_laser_gcode(paths: list, output_path: str, cfg: Config = None, progress_cb=None):
     """G-code para láser GRBL (M4 = potencia dinámica)."""
-    print(f"[4/4] Generando G-code (láser) → {output_path} ...")
+    if cfg is None:
+        cfg = Config()
+    (progress_cb or print)(f"[4/4] Generando G-code (láser) → {output_path} ...")
     lines = [
         "( Generated by gerber2gcode.py — MODE: laser )",
-        f"( Laser power    : S{LASER_POWER} )",
-        f"( Feed rate      : {LASER_FEED_RATE} mm/min )",
-        f"( Pass step      : {LASER_PASS_MM} mm )",
+        f"( Laser power    : S{cfg.LASER_POWER} )",
+        f"( Feed rate      : {cfg.LASER_FEED_RATE} mm/min )",
+        f"( Pass step      : {cfg.LASER_PASS_MM} mm )",
         "G17", "G21", "G54", "G90",
-        "M4",  # modo láser dinámico (GRBL estándar)
+        "M4",
     ]
     for path in paths:
         if len(path) < 2:
             continue
         x0, y0 = path[0]
         lines += [
-            f"G00 X{x0:.3f} Y{y0:.3f}",          # mover sin quemar
-            f"G01 F{LASER_FEED_RATE} S{LASER_POWER}",  # encender láser
+            f"G00 X{x0:.3f} Y{y0:.3f}",
+            f"G01 F{cfg.LASER_FEED_RATE} S{cfg.LASER_POWER}",
         ]
         for x, y in path[1:]:
             lines.append(f"G01 X{x:.3f} Y{y:.3f}")
-        lines.append("S0")  # apagar láser entre contornos
+        lines.append("S0")
     lines += ["M5", "M30"]
     with open(output_path, "w") as f:
         f.write("\n".join(lines) + "\n")
-    print(f"    ✓ {len(lines)} líneas escritas")
+    (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
 
 
 # ─────────────────────────────────────────────
 # MARCAS DE REFERENCIA
 # ─────────────────────────────────────────────
 
-def _cross_gcode(cx: float, cy: float, label: str) -> list:
+def _cross_gcode(cx: float, cy: float, label: str, cfg: Config = None) -> list:
     """Genera las líneas G-code para una cruz '+' centrada en (cx, cy)."""
-    arm = REF_CROSS_MM / 2.0
+    if cfg is None:
+        cfg = Config()
+    arm = cfg.REF_CROSS_MM / 2.0
     return [
         f"( {label} — cruz en ({cx:.3f}, {cy:.3f}) )",
-        # brazo horizontal
         f"G00 X{cx - arm:.3f} Y{cy:.3f}",
-        f"G01 F{PLUNGE_RATE} Z{REF_MARK_DEPTH_MM:.3f}",
-        f"G01 F{FEED_RATE} X{cx + arm:.3f} Y{cy:.3f}",
-        f"G00 Z{SAFE_Z_MM:.3f}",
-        # brazo vertical
+        f"G01 F{cfg.PLUNGE_RATE} Z{cfg.REF_MARK_DEPTH_MM:.3f}",
+        f"G01 F{cfg.FEED_RATE} X{cx + arm:.3f} Y{cy:.3f}",
+        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
         f"G00 X{cx:.3f} Y{cy - arm:.3f}",
-        f"G01 F{PLUNGE_RATE} Z{REF_MARK_DEPTH_MM:.3f}",
-        f"G01 F{FEED_RATE} X{cx:.3f} Y{cy + arm:.3f}",
-        f"G00 Z{SAFE_Z_MM:.3f}",
+        f"G01 F{cfg.PLUNGE_RATE} Z{cfg.REF_MARK_DEPTH_MM:.3f}",
+        f"G01 F{cfg.FEED_RATE} X{cx:.3f} Y{cy + arm:.3f}",
+        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
     ]
 
 
-def generate_ref_marks(board_w: float, board_h: float, output_stem: str):
+def generate_ref_marks(board_w: float, board_h: float, output_stem: str, cfg: Config = None):
     """
-    Genera dos marcas de referencia en cruz '+' (REF_CROSS_MM) con V-bit:
-      P1 = inferior-izquierda: centro a REF_OFFSET_MM fuera del origen
-      P2 = superior-derecha:   centro a REF_OFFSET_MM fuera de (board_w, board_h)
-    Produce:
-      <stem>-ref.nc   → G-code para fresar las dos cruces
-      <stem>-ref.txt  → posiciones esperadas para fix_align.py
+    Genera dos marcas de referencia en cruz '+' (REF_CROSS_MM) con V-bit.
     """
+    if cfg is None:
+        cfg = Config()
     nc_path  = f"{output_stem}-ref.nc"
     txt_path = f"{output_stem}-ref.txt"
 
-    o   = REF_OFFSET_MM
+    o   = cfg.REF_OFFSET_MM
     c1x, c1y = -o,           -o
     c2x, c2y =  board_w + o,  board_h + o
 
     lines = [
         "( Generated by gerber2gcode.py — REFERENCE MARKS )",
-        f"( Cruz '+' de {REF_CROSS_MM:.1f} mm, offset {REF_OFFSET_MM:.1f} mm desde bordes del PCB )",
+        f"( Cruz '+' de {cfg.REF_CROSS_MM:.1f} mm, offset {cfg.REF_OFFSET_MM:.1f} mm desde bordes del PCB )",
         f"( P1 = ({c1x:.3f}, {c1y:.3f})  —  inferior-izquierda )",
         f"( P2 = ({c2x:.3f}, {c2y:.3f})  —  superior-derecha )",
         "G17", "G21", "G54", "G90",
-        f"G00 Z{SAFE_Z_MM:.3f}",
+        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
     ]
-    lines += _cross_gcode(c1x, c1y, "Marca 1 — inferior-izquierda")
-    lines += _cross_gcode(c2x, c2y, "Marca 2 — superior-derecha")
+    lines += _cross_gcode(c1x, c1y, "Marca 1 — inferior-izquierda", cfg)
+    lines += _cross_gcode(c2x, c2y, "Marca 2 — superior-derecha", cfg)
     lines += ["M05", "M30"]
 
     with open(nc_path, 'w') as f:
@@ -426,12 +455,14 @@ def generate_ref_marks(board_w: float, board_h: float, output_stem: str):
 # TALADRADO (Excellon .drl)
 # ─────────────────────────────────────────────
 
-def map_drill_size(diam: float) -> float:
+def map_drill_size(diam: float, cfg: Config = None) -> float:
     """Asigna el diámetro a la broca disponible inmediata superior en DRILL_SIZES."""
-    for size in sorted(DRILL_SIZES):
+    if cfg is None:
+        cfg = Config()
+    for size in sorted(cfg.DRILL_SIZES):
         if diam <= size + 1e-6:
             return size
-    return sorted(DRILL_SIZES)[-1]
+    return sorted(cfg.DRILL_SIZES)[-1]
 
 
 def parse_excellon(path: str) -> dict:
@@ -445,9 +476,9 @@ def parse_excellon(path: str) -> dict:
     """
     print(f"[drill] Parseando {path} ...")
 
-    tools        = {}    # T number → diameter mm
-    holes        = {}    # diam → [(x, y), ...]
-    slots        = []    # [(x1, y1, x2, y2, diam)]
+    tools        = {}
+    holes        = {}
+    slots        = []
     current_diam = None
     slot_start   = None
     in_slot      = False
@@ -470,7 +501,6 @@ def parse_excellon(path: str) -> dict:
                 in_header = False
                 continue
 
-            # Definición de herramienta (en cabecera)
             m = tool_def_re.match(line)
             if m:
                 tools[int(m.group(1))] = float(m.group(2))
@@ -484,7 +514,6 @@ def parse_excellon(path: str) -> dict:
             if line in ('G90', 'G05', 'FMAT,2', 'METRIC'):
                 continue
 
-            # Selección de herramienta
             m = tool_sel_re.match(line)
             if m:
                 current_diam = tools.get(int(m.group(1)))
@@ -492,7 +521,6 @@ def parse_excellon(path: str) -> dict:
                 slot_start   = None
                 continue
 
-            # Ranura — G00: rápido al inicio
             if line.startswith('G00'):
                 m = coord_re.search(line)
                 if m:
@@ -500,7 +528,6 @@ def parse_excellon(path: str) -> dict:
                     in_slot    = True
                 continue
 
-            # Ranura — G01: corte hasta el final
             if line.startswith('G01') and in_slot and slot_start is not None:
                 m = coord_re.search(line)
                 if m and current_diam is not None:
@@ -514,7 +541,6 @@ def parse_excellon(path: str) -> dict:
             if line in ('M15', 'M16', 'G05'):
                 continue
 
-            # Agujero redondo: coordenada XY simple
             m = coord_re.match(line)
             if m and current_diam is not None:
                 holes.setdefault(current_diam, []).append(
@@ -528,21 +554,23 @@ def parse_excellon(path: str) -> dict:
     return {'holes': holes, 'slots': slots}
 
 
-def generate_drill_gcode(diameter_mm: float, holes: list, output_path: str):
+def generate_drill_gcode(diameter_mm: float, holes: list, output_path: str, cfg: Config = None):
     """G-code para taladrar agujeros de un diámetro."""
+    if cfg is None:
+        cfg = Config()
     print(f"[drill] {output_path}  ({len(holes)} agujeros, ø{diameter_mm:.3f} mm) ...")
     lines = [
         f"( Generated by gerber2gcode.py — DRILLS {diameter_mm:.3f} mm )",
         f"( Tool: {diameter_mm:.3f} mm drill bit )",
         f"( Holes: {len(holes)} )",
         "G17", "G21", "G54", "G90",
-        f"G00 Z{DRILL_SAFE_Z_MM:.3f}",
+        f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
     ]
     for x, y in holes:
         lines += [
             f"G00 X{x:.3f} Y{y:.3f}",
-            f"G01 F{DRILL_FEED_RATE} Z{DRILL_DEPTH_MM:.3f}",
-            f"G00 Z{DRILL_SAFE_Z_MM:.3f}",
+            f"G01 F{cfg.DRILL_FEED_RATE} Z{cfg.DRILL_DEPTH_MM:.3f}",
+            f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
         ]
     lines += ["M05", "M30"]
     with open(output_path, 'w') as f:
@@ -550,32 +578,31 @@ def generate_drill_gcode(diameter_mm: float, holes: list, output_path: str):
     print(f"    ✓ {len(lines)} líneas escritas")
 
 
-def generate_slots_gcode(slots: list, output_path: str):
+def generate_slots_gcode(slots: list, output_path: str, cfg: Config = None):
     """G-code para ranuras/ovalados con múltiples pasadas si la fresa es menor al ancho."""
+    if cfg is None:
+        cfg = Config()
     print(f"[slots] {output_path}  ({len(slots)} ranuras) ...")
     lines = [
         "( Generated by gerber2gcode.py — SLOTS )",
-        f"( Tool diameter  : {SLOT_TOOL_MM:.3f} mm )",
+        f"( Tool diameter  : {cfg.SLOT_TOOL_MM:.3f} mm )",
         f"( Slots: {len(slots)} )",
         "G17", "G21", "G54", "G90",
-        f"G00 Z{DRILL_SAFE_Z_MM:.3f}",
+        f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
     ]
 
     for x1, y1, x2, y2, diam in slots:
-        offset = (diam - SLOT_TOOL_MM) / 2.0
+        offset = (diam - cfg.SLOT_TOOL_MM) / 2.0
 
-        # Vector unitario perpendicular al slot
         dx, dy = x2 - x1, y2 - y1
         length = math.hypot(dx, dy)
         if length == 0:
             continue
-        # perpendicular: rotar 90°
         px, py = -dy / length, dx / length
 
-        # Pasadas: izquierda, centro, derecha (solo centro si offset=0)
         offsets = [-offset, 0.0, offset] if offset > 1e-6 else [0.0]
 
-        lines.append(f"( slot ø{diam:.3f}mm — fresa {SLOT_TOOL_MM:.3f}mm — {len(offsets)} pasada(s) )")
+        lines.append(f"( slot ø{diam:.3f}mm — fresa {cfg.SLOT_TOOL_MM:.3f}mm — {len(offsets)} pasada(s) )")
         for o in offsets:
             ax = x1 + px * o
             ay = y1 + py * o
@@ -583,9 +610,9 @@ def generate_slots_gcode(slots: list, output_path: str):
             by = y2 + py * o
             lines += [
                 f"G00 X{ax:.3f} Y{ay:.3f}",
-                f"G01 F{SLOT_PLUNGE_RATE} Z{SLOT_DEPTH_MM:.3f}",
-                f"G01 F{SLOT_FEED_RATE} X{bx:.3f} Y{by:.3f}",
-                f"G00 Z{DRILL_SAFE_Z_MM:.3f}",
+                f"G01 F{cfg.SLOT_PLUNGE_RATE} Z{cfg.SLOT_DEPTH_MM:.3f}",
+                f"G01 F{cfg.SLOT_FEED_RATE} X{bx:.3f} Y{by:.3f}",
+                f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
             ]
 
     lines += ["M05", "M30"]
@@ -595,8 +622,11 @@ def generate_slots_gcode(slots: list, output_path: str):
 
 
 def process_drill_files(drl_paths: list, output_stem: str,
-                        cx: float = None, offset: tuple = (0.0, 0.0)):
+                        cx: float = None, offset: tuple = (0.0, 0.0),
+                        cfg: Config = None, progress_cb=None):
     """Procesa uno o más .drl y genera los .nc por diámetro + slots."""
+    if cfg is None:
+        cfg = Config()
     all_holes = {}
     all_slots = []
 
@@ -606,16 +636,15 @@ def process_drill_files(drl_paths: list, output_stem: str,
             all_holes.setdefault(diam, []).extend(pts)
         all_slots.extend(result['slots'])
 
-    # Reasignar a brocas disponibles
     mapped_holes = {}
     for diam, pts in all_holes.items():
-        target = map_drill_size(diam)
+        target = map_drill_size(diam, cfg)
         if diam != target:
-            print(f"    [map] ø{diam:.3f}mm → ø{target:.3f}mm  ({len(pts)} agujeros)")
+            (progress_cb or print)(f"    [map] ø{diam:.3f}mm → ø{target:.3f}mm  ({len(pts)} agujeros)")
         mapped_holes.setdefault(target, []).extend(pts)
     all_holes = mapped_holes
 
-    if MIRROR_X and cx is not None:
+    if cfg.MIRROR_X and cx is not None:
         all_holes = {
             diam: [(mirror_point(x, cx), y) for x, y in pts]
             for diam, pts in all_holes.items()
@@ -635,18 +664,143 @@ def process_drill_files(drl_paths: list, output_stem: str,
         for x1, y1, x2, y2, diam in all_slots
     ]
 
+    drill_files = []
     for diam in sorted(all_holes.keys()):
         fname = f"{output_stem}-drill-{diam:.2f}mm.nc"
-        generate_drill_gcode(diam, all_holes[diam], fname)
+        generate_drill_gcode(diam, all_holes[diam], fname, cfg)
+        drill_files.append(fname)
 
+    slots_file = None
     if all_slots:
-        generate_slots_gcode(all_slots, f"{output_stem}-slots.nc")
+        slots_file = f"{output_stem}-slots.nc"
+        generate_slots_gcode(all_slots, slots_file, cfg)
     else:
-        print("[slots] No se encontraron ranuras.")
+        (progress_cb or print)("[slots] No se encontraron ranuras.")
+
+    return drill_files, slots_file
 
 
 # ─────────────────────────────────────────────
-# MAIN
+# RUN (pipeline callable as library)
+# ─────────────────────────────────────────────
+
+def run(gbr_path: str, output_path: str, drl_paths: list = None,
+        cfg: Config = None, progress_cb=None) -> dict:
+    """
+    Full pipeline. Returns dict with keys:
+      copper_geom, individuals, paths, output_files, board_w, board_h, clearance
+    """
+    if cfg is None:
+        cfg = Config()
+    if drl_paths is None:
+        drl_paths = []
+
+    output_files = []
+
+    (progress_cb or print)(f"[✓] Modo: {cfg.MODE.upper()}")
+    if cfg.MIRROR_X:
+        (progress_cb or print)("[✓] MIRROR_X activo — espejado horizontal (B_Cu)")
+
+    (progress_cb or print)(f"[1/4] Cargando {gbr_path} ...")
+    layer = GerberFile.open(gbr_path)
+
+    (progress_cb or print)("[2/4] Extrayendo geometría de cobre ...")
+    copper, indivs = extract_copper_polygons(layer, progress_cb=progress_cb)
+
+    bounds = copper.bounds
+    cx = (bounds[0] + bounds[2]) / 2.0
+
+    if cfg.MIRROR_X:
+        (progress_cb or print)(f"    → Centro X del tablero: {cx:.3f} mm")
+        copper  = mirror_geometry(copper, cx)
+        indivs  = [mirror_geometry(g, cx) for g in indivs]
+
+    minx, miny, _, _ = copper.bounds
+    copper = shapely_translate(copper, xoff=-minx, yoff=-miny)
+    indivs = [shapely_translate(g, xoff=-minx, yoff=-miny) for g in indivs]
+    (progress_cb or print)(f"[✓] Traslación al origen: offset X={-minx:.3f} mm  Y={-miny:.3f} mm")
+
+    _, _, board_w, board_h = copper.bounds
+    clearance = None
+    paths = []
+
+    if cfg.MODE == "mill":
+        d_eff = effective_tool_diameter(cfg)
+        tool_radius = d_eff / 2.0
+        (progress_cb or print)(f"[✓] V-bit: punta={cfg.VBIT_TIP_MM} mm, ángulo={cfg.VBIT_ANGLE_DEG}°, profundidad={cfg.CUT_DEPTH_MM} mm")
+        (progress_cb or print)(f"    → Diámetro efectivo de corte: {d_eff:.3f} mm")
+
+        if cfg.CLEARANCE_MM is not None:
+            clearance = cfg.CLEARANCE_MM
+            (progress_cb or print)(f"[✓] Clearance manual: {clearance:.3f} mm")
+        else:
+            clearance = detect_clearance(indivs, cfg)
+            if clearance is None:
+                clearance = d_eff
+                (progress_cb or print)(f"[!] No se pudo detectar clearance, usando {clearance:.3f} mm")
+            else:
+                (progress_cb or print)(f"[✓] Clearance detectado automáticamente: {clearance:.3f} mm")
+
+        (progress_cb or print)("[3/4] Calculando paths de fresado ...")
+        paths = compute_mill_paths(copper, tool_radius, clearance, cfg=cfg, progress_cb=progress_cb)
+        (progress_cb or print)(f"[4/4] Generando G-code → {output_path} ...")
+        generate_mill_gcode(paths, output_path, clearance, board_w, board_h, cfg=cfg, progress_cb=progress_cb)
+        output_files.append(output_path)
+
+    elif cfg.MODE == "laser":
+        (progress_cb or print)(f"[✓] Láser: potencia=S{cfg.LASER_POWER}, feed={cfg.LASER_FEED_RATE} mm/min, paso={cfg.LASER_PASS_MM} mm")
+        (progress_cb or print)("[3/4] Calculando contornos láser ...")
+        paths = compute_laser_paths(copper, cfg=cfg, progress_cb=progress_cb)
+        (progress_cb or print)(f"[4/4] Generando G-code → {output_path} ...")
+        generate_laser_gcode(paths, output_path, cfg=cfg, progress_cb=progress_cb)
+        output_files.append(output_path)
+
+    else:
+        raise ValueError(f"MODE '{cfg.MODE}' desconocido. Usá 'mill' o 'laser'.")
+
+    if drl_paths:
+        output_stem = str(Path(output_path).with_suffix(''))
+        (progress_cb or print)("")
+        drill_cx = board_w / 2.0 if cfg.MIRROR_X else None
+        drill_files, slots_file = process_drill_files(
+            drl_paths, output_stem, cx=drill_cx, offset=(0.0, 0.0),
+            cfg=cfg, progress_cb=progress_cb
+        )
+        output_files.extend(drill_files)
+        if slots_file:
+            output_files.append(slots_file)
+
+    _, _, board_w, board_h = copper.bounds
+    (progress_cb or print)(f"\n┌─ Dimensiones del PCB ──────────────────")
+    (progress_cb or print)(f"│  Ancho  (X): {board_w:.3f} mm")
+    (progress_cb or print)(f"│  Alto   (Y): {board_h:.3f} mm")
+    (progress_cb or print)(f"└────────────────────────────────────────\n")
+
+    output_stem = str(Path(output_path).with_suffix(''))
+    o = cfg.REF_OFFSET_MM
+    txt_path = f"{output_stem}-ref.txt"
+    with open(txt_path, 'w') as f:
+        f.write(f"EX1={-o:.3f}\nEY1={-o:.3f}\n")
+        f.write(f"EX2={board_w + o:.3f}\nEY2={board_h + o:.3f}\n")
+        f.write(f"STEM={output_stem}\n")
+    (progress_cb or print)(f"[ref] {txt_path}  (posiciones de cruces para fix_align.py)")
+    output_files.append(txt_path)
+
+    (progress_cb or print)("\n✓ Listo.")
+
+    return {
+        'copper_geom': copper,
+        'individuals': indivs,
+        'paths': paths,
+        'output_files': output_files,
+        'board_w': board_w,
+        'board_h': board_h,
+        'clearance': clearance,
+    }
+
+
+# ─────────────────────────────────────────────
+# MAIN (thin CLI wrapper)
 # ─────────────────────────────────────────────
 
 def main():
@@ -656,6 +810,8 @@ def main():
         print("  python gerber2gcode.py <input.drl> [more.drl ...]")
         sys.exit(1)
 
+    cfg = Config()
+
     # Modo solo-taladros: todos los argumentos son .drl
     if all(Path(a).suffix.lower() == '.drl' for a in sys.argv[1:]):
         drl_paths = sys.argv[1:]
@@ -663,13 +819,12 @@ def main():
             if not Path(drl).exists():
                 print(f"Error: no existe el archivo '{drl}'")
                 sys.exit(1)
-        # Stem de salida desde el primer .drl, sin extensión
         output_stem = str(Path(drl_paths[0]).with_suffix(''))
         print("[✓] Modo: SOLO TALADROS")
-        if MIRROR_X:
+        if cfg.MIRROR_X:
             print("[✓] MIRROR_X activo")
         print()
-        process_drill_files(drl_paths, output_stem)
+        process_drill_files(drl_paths, output_stem, cfg=cfg)
         print("\n✓ Listo.")
         return
 
@@ -689,86 +844,7 @@ def main():
             print(f"Error: no existe el archivo '{drl}'")
             sys.exit(1)
 
-    print(f"[✓] Modo: {MODE.upper()}")
-    if MIRROR_X:
-        print("[✓] MIRROR_X activo — espejado horizontal (B_Cu)")
-
-    layer          = load_gerber(input_path)
-    copper, indivs = extract_copper_polygons(layer)
-
-    # Calcular centro X antes de espejo (usado también para los taladros)
-    bounds = copper.bounds  # (minx, miny, maxx, maxy)
-    cx = (bounds[0] + bounds[2]) / 2.0
-
-    if MIRROR_X:
-        print(f"    → Centro X del tablero: {cx:.3f} mm")
-        copper  = mirror_geometry(copper, cx)
-        indivs  = [mirror_geometry(g, cx) for g in indivs]
-
-    # Trasladar esquina inferior-izquierda al origen (cuadrante I)
-    minx, miny, _, _ = copper.bounds
-    copper = shapely_translate(copper, xoff=-minx, yoff=-miny)
-    indivs = [shapely_translate(g, xoff=-minx, yoff=-miny) for g in indivs]
-    print(f"[✓] Traslación al origen: offset X={-minx:.3f} mm  Y={-miny:.3f} mm")
-
-    if MODE == "mill":
-        d_eff = effective_tool_diameter()
-        tool_radius = d_eff / 2.0
-        print(f"[✓] V-bit: punta={VBIT_TIP_MM} mm, ángulo={VBIT_ANGLE_DEG}°, profundidad={CUT_DEPTH_MM} mm")
-        print(f"    → Diámetro efectivo de corte: {d_eff:.3f} mm")
-
-        if CLEARANCE_MM is not None:
-            clearance = CLEARANCE_MM
-            print(f"[✓] Clearance manual: {clearance:.3f} mm")
-        else:
-            clearance = detect_clearance(indivs)
-            if clearance is None:
-                clearance = d_eff
-                print(f"[!] No se pudo detectar clearance, usando {clearance:.3f} mm")
-            else:
-                print(f"[✓] Clearance detectado automáticamente: {clearance:.3f} mm")
-
-        paths = compute_mill_paths(copper, tool_radius, clearance)
-        _, _, board_w, board_h = copper.bounds
-        generate_mill_gcode(paths, output_path, clearance, board_w, board_h)
-
-    elif MODE == "laser":
-        print(f"[✓] Láser: potencia=S{LASER_POWER}, feed={LASER_FEED_RATE} mm/min, paso={LASER_PASS_MM} mm")
-        paths = compute_laser_paths(copper)
-        generate_laser_gcode(paths, output_path)
-
-    else:
-        print(f"Error: MODE '{MODE}' desconocido. Usá 'mill' o 'laser'.")
-        sys.exit(1)
-
-    if drl_paths:
-        output_stem = str(Path(output_path).with_suffix(''))
-        print()
-        # Los Excellon de KiCad usan coordenadas relativas al PCB (origen = esquina inferior-izquierda)
-        # a diferencia del Gerber que usa coordenadas absolutas del sheet.
-        # Por eso offset=(0,0) y el centro de espejo es board_w/2 (no cx del sheet).
-        drill_cx = board_w / 2.0 if MIRROR_X else None
-        process_drill_files(drl_paths, output_stem,
-                            cx=drill_cx,
-                            offset=(0.0, 0.0))
-
-    _, _, board_w, board_h = copper.bounds
-    print(f"\n┌─ Dimensiones del PCB ──────────────────")
-    print(f"│  Ancho  (X): {board_w:.3f} mm")
-    print(f"│  Alto   (Y): {board_h:.3f} mm")
-    print(f"└────────────────────────────────────────\n")
-
-    # Guardar posiciones de referencia para fix_align.py
-    output_stem = str(Path(output_path).with_suffix(''))
-    o = REF_OFFSET_MM
-    txt_path = f"{output_stem}-ref.txt"
-    with open(txt_path, 'w') as f:
-        f.write(f"EX1={-o:.3f}\nEY1={-o:.3f}\n")
-        f.write(f"EX2={board_w + o:.3f}\nEY2={board_h + o:.3f}\n")
-        f.write(f"STEM={output_stem}\n")
-    print(f"[ref] {txt_path}  (posiciones de cruces para fix_align.py)")
-
-    print("\n✓ Listo.")
+    run(input_path, output_path, drl_paths=drl_paths, cfg=cfg)
 
 
 if __name__ == "__main__":
