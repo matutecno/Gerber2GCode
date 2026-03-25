@@ -17,6 +17,7 @@ from gui.worker import GenerationWorker
 from gui.panels.preview_panel import PreviewPanel
 from gui.panels.files_panel import FilesPanel
 from gui.panels.params_panel import ParamsPanel
+from gui.help_dialog import HelpDialog
 
 BG_DARK = '#1e1e1e'
 BG_PANEL = '#2d2d2d'
@@ -53,7 +54,10 @@ class App:
         self._gen_btn.pack(side='left', padx=(0, 6))
 
         ttk.Button(tb, text='Reset Defaults',
-                   command=self._on_reset_defaults).pack(side='left')
+                   command=self._on_reset_defaults).pack(side='left', padx=(0, 6))
+
+        ttk.Button(tb, text='Help',
+                   command=self._on_help).pack(side='left')
 
     def _build_main(self):
         paned = tk.PanedWindow(self.root, orient='horizontal',
@@ -151,6 +155,9 @@ class App:
 
     def _on_reset_defaults(self):
         self.params_panel.reset_defaults()
+
+    def _on_help(self):
+        HelpDialog(self.root)
 
     def _on_generate(self):
         gbr = self.files_panel.get_gbr_path()
