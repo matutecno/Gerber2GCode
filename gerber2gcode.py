@@ -259,7 +259,9 @@ def compute_mill_paths(copper_geom, tool_radius: float, clearance: float,
     (progress_cb or print)(f"    pasadas             = {n_passes}")
     (progress_cb or print)(f"    offsets             = {[f'{o:.3f}' for o in offsets]}")
 
-    paths = []
+    paths   = []
+    filtered = 0
+    min_area = d_eff ** 2  # área mínima: un hueco más pequeño que d_eff² es físicamente inaccesible
 
     for offset_dist in offsets:
         result = copper_geom.buffer(offset_dist, join_style=2, cap_style=2)
@@ -269,9 +271,12 @@ def compute_mill_paths(copper_geom, tool_radius: float, clearance: float,
             if isinstance(sp, Polygon) and not sp.is_empty:
                 paths.append(list(sp.exterior.coords))
                 for interior in sp.interiors:
-                    paths.append(list(interior.coords))
+                    if Polygon(interior).area >= min_area:
+                        paths.append(list(interior.coords))
+                    else:
+                        filtered += 1
 
-    (progress_cb or print)(f"    → {len(paths)} path(s) total")
+    (progress_cb or print)(f"    → {len(paths)} path(s) total  ({filtered} micro-path(s) filtrado(s) < {min_area:.4f} mm²)")
     return paths
 
 
@@ -349,8 +354,10 @@ def compute_laser_paths(copper_geom, cfg: Config = None, progress_cb=None) -> li
         raise ValueError("No hay área libre entre las pistas.")
 
     step = cfg.LASER_PASS_MM
-    paths = []
-    current = free_area
+    paths    = []
+    filtered = 0
+    min_area = step ** 2  # área mínima: fragmento más chico que el paso² no aporta cobertura
+    current  = free_area
 
     iteration = 0
     while not current.is_empty:
@@ -358,11 +365,17 @@ def compute_laser_paths(copper_geom, cfg: Config = None, progress_cb=None) -> li
         for poly in polys:
             if not isinstance(poly, Polygon) or poly.is_empty:
                 continue
+            if poly.area < min_area:
+                filtered += 1
+                continue
             coords = list(poly.exterior.coords)
             if len(coords) >= 2:
                 paths.append(coords)
             for interior in poly.interiors:
-                paths.append(list(interior.coords))
+                if Polygon(interior).area >= min_area:
+                    paths.append(list(interior.coords))
+                else:
+                    filtered += 1
 
         current = current.buffer(-step, join_style=2, cap_style=2)
         if current is None:
@@ -374,7 +387,7 @@ def compute_laser_paths(copper_geom, cfg: Config = None, progress_cb=None) -> li
     (progress_cb or print)(f"[3/4] Láser — contornos concéntricos:")
     (progress_cb or print)(f"    paso entre contornos = {step:.3f} mm")
     (progress_cb or print)(f"    contornos generados  = {iteration}")
-    (progress_cb or print)(f"    → {len(paths)} path(s) total")
+    (progress_cb or print)(f"    → {len(paths)} path(s) total  ({filtered} micro-path(s) filtrado(s) < {min_area:.4f} mm²)")
     return paths
 
 
