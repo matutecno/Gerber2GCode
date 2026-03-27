@@ -35,12 +35,21 @@ class App:
         self._worker = None
         self._queue = None
         self._poll_job = None
+        self._paned = None
 
         self._build_toolbar()
         self._build_main()
         self._build_statusbar()
 
         self._refresh_history_list()
+        self.root.after(50, self._init_sash_positions)
+
+    def _init_sash_positions(self):
+        self.root.update_idletasks()
+        if self._paned.winfo_width() < 10:
+            self.root.after(50, self._init_sash_positions)
+            return
+        self._paned.sash_place(0, 580, 1)
 
     # ── Layout ────────────────────────────────────────────────────────────
 
@@ -63,6 +72,7 @@ class App:
         paned = tk.PanedWindow(self.root, orient='horizontal',
                                bg=BG_PANEL, sashwidth=5, sashrelief='flat')
         paned.pack(fill='both', expand=True, padx=4, pady=(0, 4))
+        self._paned = paned  # stored for sash init
 
         # ── Left pane: files + params ──────────────────────────────────
         left = ttk.Frame(paned, width=300)
@@ -98,19 +108,19 @@ class App:
                                               lambda ev: canvas.yview_scroll(-1*(ev.delta//120), 'units')))
         canvas.bind('<Leave>', lambda e: canvas.unbind_all('<MouseWheel>'))
 
-        paned.add(left, minsize=280)
+        paned.add(left, minsize=280, stretch='never')
 
         # ── Center pane: preview ───────────────────────────────────────
         center = ttk.Frame(paned)
         self.preview_panel = PreviewPanel(center)
         self.preview_panel.pack(fill='both', expand=True)
-        paned.add(center, minsize=400)
+        paned.add(center, minsize=400, stretch='always')
 
         # ── Right pane: history ────────────────────────────────────────
         right = ttk.Frame(paned, width=280)
         right.pack_propagate(False)
         self._build_history_pane(right)
-        paned.add(right, minsize=200)
+        paned.add(right, minsize=200, stretch='never')
 
     def _build_history_pane(self, parent):
         ttk.Label(parent, text='Run history').pack(anchor='w', padx=6, pady=(6, 2))

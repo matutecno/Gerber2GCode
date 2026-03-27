@@ -63,6 +63,8 @@ class ParamsPanel(ttk.Frame):
         self._labeled_entry(lf, 'SAFE_Z_MM', 'SAFE_Z_MM', row=1, col=0)
         self._labeled_entry(lf, 'CLEARANCE_MM (blank=auto)', 'CLEARANCE_MM', row=1, col=1)
 
+        self._labeled_check(lf, 'Spindle on start', 'SPINDLE_ON', row=2, col=0)
+
     def _add_mill_section(self):
         lf = self._section('Mill (V-bit)')
         pairs = [
@@ -133,7 +135,7 @@ class ParamsPanel(ttk.Frame):
         for key, var in self._vars.items():
             if key == 'MODE':
                 cfg[key] = var.get()
-            elif key == 'MIRROR_X':
+            elif key in ('MIRROR_X', 'SPINDLE_ON'):
                 cfg[key] = bool(var.get())
             elif key == 'CLEARANCE_MM':
                 raw = var.get().strip()
@@ -171,7 +173,7 @@ class ParamsPanel(ttk.Frame):
             if key not in d:
                 continue
             val = d[key]
-            if key == 'MIRROR_X':
+            if key in ('MIRROR_X', 'SPINDLE_ON'):
                 var.set(bool(val))
             elif key == 'CLEARANCE_MM':
                 if val is None:
@@ -192,6 +194,7 @@ class ParamsPanel(ttk.Frame):
         d = {
             'MODE':             defaults.MODE,
             'MIRROR_X':         defaults.MIRROR_X,
+            'SPINDLE_ON':       defaults.SPINDLE_ON,
             'SAFE_Z_MM':        defaults.SAFE_Z_MM,
             'CLEARANCE_MM':     defaults.CLEARANCE_MM,
             'VBIT_TIP_MM':      defaults.VBIT_TIP_MM,

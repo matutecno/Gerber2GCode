@@ -1,6 +1,12 @@
 #!/bin/bash
 source venv/bin/activate
 
+# Con --gui → lanza el frontend
+if [ "$1" == "--gui" ]; then
+    python3 run_gui.py
+    exit 0
+fi
+
 GERBER_DIR="Gerbers"
 
 # Sin argumentos → modo automático: busca en la carpeta Gerbers/
