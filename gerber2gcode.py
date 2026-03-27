@@ -38,6 +38,7 @@ class Config:
     SAFE_Z_MM: float   = 1.500    # altura de viaje segura (solo fresa)
     CLEARANCE_MM: Optional[float] = None  # clearance manual en mm, o None para auto-detectar
     MIRROR_X: bool     = True     # True para B_Cu: espeja horizontalmente antes de generar G-code
+    SPINDLE_ON: bool   = False    # True: emite S10000 M03 al inicio del G-code (activa motor)
 
     # CONFIG FRESA
     VBIT_TIP_MM: float       = 0.1     # diámetro de la punta de la V-bit (mm)
@@ -65,10 +66,10 @@ class Config:
     REF_OFFSET_MM: float     = 0       # distancia desde el borde del PCB al centro de la cruz (mm)
 
     # CONFIG RANURAS
-    SLOT_TOOL_MM: float      = 0.8     # diámetro real de la fresa usada para ranuras
+    SLOT_TOOL_MM: float      = 1     # diámetro real de la fresa usada para ranuras
     SLOT_DEPTH_MM: float     = -1.6    # profundidad de ranuras (Z negativo)
-    SLOT_PLUNGE_RATE: float  = 30      # velocidad de bajada en ranuras (mm/min)
-    SLOT_FEED_RATE: float    = 80      # velocidad de corte en ranuras (mm/min)
+    SLOT_PLUNGE_RATE: float  = 10      # velocidad de bajada en ranuras (mm/min)
+    SLOT_FEED_RATE: float    = 10      # velocidad de corte en ranuras (mm/min)
 
 
 # ─────────────────────────────────────────────
@@ -274,6 +275,8 @@ def generate_mill_gcode(paths: list, output_path: str, clearance: float,
         "G17", "G21", "G54", "G90",
         f"G00 Z{cfg.SAFE_Z_MM:.3f}",
     ]
+    if cfg.SPINDLE_ON:
+        lines.append("S10000 M03")
     if board_w is not None and board_h is not None:
         lines.append("( ── MARCAS DE REFERENCIA ── )")
         lines += _cross_gcode(-cfg.REF_OFFSET_MM, -cfg.REF_OFFSET_MM, "Ref 1 — inferior-izquierda", cfg)
@@ -305,7 +308,7 @@ def generate_mill_gcode(paths: list, output_path: str, clearance: float,
                 if remaining <= 0:
                     break
         lines.append(f"G00 Z{cfg.SAFE_Z_MM:.3f}")
-    lines += [f"G00 Z{cfg.SAFE_Z_MM:.3f}", "M05", "M30"]
+    lines += [f"G00 Z{cfg.SAFE_Z_MM:.3f}", "G00 X0 Y0", "M05", "M30"]
     with open(output_path, "w") as f:
         f.write("\n".join(lines) + "\n")
     (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
@@ -432,9 +435,11 @@ def generate_ref_marks(board_w: float, board_h: float, output_stem: str, cfg: Co
         "G17", "G21", "G54", "G90",
         f"G00 Z{cfg.SAFE_Z_MM:.3f}",
     ]
+    if cfg.SPINDLE_ON:
+        lines.append("S10000 M03")
     lines += _cross_gcode(c1x, c1y, "Marca 1 — inferior-izquierda", cfg)
     lines += _cross_gcode(c2x, c2y, "Marca 2 — superior-derecha", cfg)
-    lines += ["M05", "M30"]
+    lines += ["G00 X0 Y0", "M05", "M30"]
 
     with open(nc_path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
@@ -566,13 +571,15 @@ def generate_drill_gcode(diameter_mm: float, holes: list, output_path: str, cfg:
         "G17", "G21", "G54", "G90",
         f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
     ]
+    if cfg.SPINDLE_ON:
+        lines.append("S10000 M03")
     for x, y in holes:
         lines += [
             f"G00 X{x:.3f} Y{y:.3f}",
             f"G01 F{cfg.DRILL_FEED_RATE} Z{cfg.DRILL_DEPTH_MM:.3f}",
             f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
         ]
-    lines += ["M05", "M30"]
+    lines += ["G00 X0 Y0", "M05", "M30"]
     with open(output_path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
     print(f"    ✓ {len(lines)} líneas escritas")
@@ -590,6 +597,8 @@ def generate_slots_gcode(slots: list, output_path: str, cfg: Config = None):
         "G17", "G21", "G54", "G90",
         f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
     ]
+    if cfg.SPINDLE_ON:
+        lines.append("S10000 M03")
 
     for x1, y1, x2, y2, diam in slots:
         offset = (diam - cfg.SLOT_TOOL_MM) / 2.0
@@ -615,7 +624,7 @@ def generate_slots_gcode(slots: list, output_path: str, cfg: Config = None):
                 f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
             ]
 
-    lines += ["M05", "M30"]
+    lines += ["G00 X0 Y0", "M05", "M30"]
     with open(output_path, 'w') as f:
         f.write('\n'.join(lines) + '\n')
     print(f"    ✓ {len(lines)} líneas escritas")
@@ -763,9 +772,9 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
     if drl_paths:
         output_stem = str(Path(output_path).with_suffix(''))
         (progress_cb or print)("")
-        drill_cx = board_w / 2.0 if cfg.MIRROR_X else None
+        drill_cx = cx if cfg.MIRROR_X else None
         drill_files, slots_file, _drill_holes, _drill_slots = process_drill_files(
-            drl_paths, output_stem, cx=drill_cx, offset=(0.0, 0.0),
+            drl_paths, output_stem, cx=drill_cx, offset=(-minx, -miny),
             cfg=cfg, progress_cb=progress_cb
         )
         output_files.extend(drill_files)
