@@ -20,7 +20,9 @@ import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
-from shapely.geometry import Polygon, MultiPolygon, LineString, Point, box
+from shapely.geometry import (Polygon, MultiPolygon, LineString,
+                              MultiLineString, GeometryCollection,
+                              Point, box)
 from shapely.ops import unary_union
 from shapely.affinity import scale as shapely_scale, translate as shapely_translate, rotate as shapely_rotate
 from gerbonara import GerberFile
@@ -71,6 +73,14 @@ class Config:
     SLOT_PLUNGE_RATE: float  = 10      # velocidad de bajada en ranuras (mm/min)
     SLOT_FEED_RATE: float    = 10      # velocidad de corte en ranuras (mm/min)
 
+    # CONFIG POCKET (mecha recta, raster)
+    POCKET_TOOL_MM: float          = 1.0   # diámetro de la mecha (mm)
+    POCKET_STEPOVER_FRAC: float    = 0.65  # solapado como fracción del diámetro
+    POCKET_DEPTH_MM: float         = -1.6  # profundidad (Z negativo)
+    POCKET_PLUNGE_RATE: float      = 30    # velocidad de bajada (mm/min)
+    POCKET_FEED_RATE: float        = 100   # velocidad de pasadas raster (mm/min)
+    POCKET_FINISH_FEED_RATE: float = 50    # velocidad de pasada final de perímetro (mm/min)
+
 
 # ─────────────────────────────────────────────
 # Legacy module-level CONFIG constants (kept for backward compat)
@@ -101,6 +111,12 @@ SLOT_TOOL_MM      = _default_cfg.SLOT_TOOL_MM
 SLOT_DEPTH_MM     = _default_cfg.SLOT_DEPTH_MM
 SLOT_PLUNGE_RATE  = _default_cfg.SLOT_PLUNGE_RATE
 SLOT_FEED_RATE    = _default_cfg.SLOT_FEED_RATE
+POCKET_TOOL_MM          = _default_cfg.POCKET_TOOL_MM
+POCKET_STEPOVER_FRAC    = _default_cfg.POCKET_STEPOVER_FRAC
+POCKET_DEPTH_MM         = _default_cfg.POCKET_DEPTH_MM
+POCKET_PLUNGE_RATE      = _default_cfg.POCKET_PLUNGE_RATE
+POCKET_FEED_RATE        = _default_cfg.POCKET_FEED_RATE
+POCKET_FINISH_FEED_RATE = _default_cfg.POCKET_FINISH_FEED_RATE
 
 
 def mirror_geometry(geom, cx: float):
@@ -690,6 +706,136 @@ def process_drill_files(drl_paths: list, output_stem: str,
 
 
 # ─────────────────────────────────────────────
+# POCKET MILLING (mecha recta, raster zigzag)
+# ─────────────────────────────────────────────
+
+def compute_pocket_paths(individuals: list, cfg: Config = None,
+                         progress_cb=None) -> list:
+    """
+    Para cada pad individual genera un plan de pocket milling:
+      - Pasadas raster zigzag con stepover = POCKET_TOOL_MM * POCKET_STEPOVER_FRAC
+      - Pasada final de perímetro (finish pass)
+    Retorna lista de dicts {'raster_segments': [...], 'perimeters': [...]}.
+    Pads menores que el diámetro de la mecha son ignorados silenciosamente.
+    """
+    if cfg is None:
+        cfg = Config()
+    tool_radius = cfg.POCKET_TOOL_MM / 2.0
+    stepover = cfg.POCKET_TOOL_MM * cfg.POCKET_STEPOVER_FRAC
+
+    plans = []
+    skipped = 0
+
+    for poly in individuals:
+        inset = poly.buffer(-tool_radius, join_style=2, cap_style=2)
+        if inset.is_empty:
+            skipped += 1
+            continue
+        if not isinstance(inset, (Polygon, MultiPolygon)):
+            skipped += 1
+            continue
+
+        sub_polys = list(inset.geoms) if isinstance(inset, MultiPolygon) else [inset]
+
+        all_segments = []
+        all_perimeters = []
+
+        for sub_poly in sub_polys:
+            minx, miny, maxx, maxy = sub_poly.bounds
+
+            # ── Raster zigzag ──
+            row_segs = []
+            y = miny
+            while y <= maxy + 1e-9:
+                scan = LineString([(minx - 1, y), (maxx + 1, y)])
+                clipped = scan.intersection(sub_poly)
+                if not clipped.is_empty:
+                    if isinstance(clipped, LineString):
+                        geoms = [clipped]
+                    elif isinstance(clipped, MultiLineString):
+                        geoms = list(clipped.geoms)
+                    elif isinstance(clipped, GeometryCollection):
+                        geoms = [g for g in clipped.geoms if isinstance(g, LineString)]
+                    else:
+                        geoms = []
+                    row_segs.append([
+                        (g.coords[0], g.coords[-1]) for g in geoms if len(g.coords) >= 2
+                    ])
+                else:
+                    row_segs.append([])
+                y += stepover
+
+            for i, row in enumerate(row_segs):
+                if i % 2 == 0:
+                    for seg in row:
+                        all_segments.append(seg)
+                else:
+                    for seg in reversed(row):
+                        all_segments.append((seg[1], seg[0]))
+
+            # ── Perímetro finish pass ──
+            perim = list(sub_poly.exterior.coords)
+            if perim[0] != perim[-1]:
+                perim.append(perim[0])
+            all_perimeters.append(perim)
+
+        if all_segments or all_perimeters:
+            plans.append({'raster_segments': all_segments, 'perimeters': all_perimeters})
+
+    (progress_cb or print)(
+        f"    → {len(plans)} pad(s) a fresar, {skipped} ignorado(s) (mecha no entra)"
+    )
+    return plans
+
+
+def generate_pocket_gcode(pocket_plans: list, output_path: str,
+                          cfg: Config = None, progress_cb=None):
+    """Genera G-code de pocket milling (raster zigzag + perímetro) y lo escribe en output_path."""
+    if cfg is None:
+        cfg = Config()
+    stepover = cfg.POCKET_TOOL_MM * cfg.POCKET_STEPOVER_FRAC
+    lines = [
+        f"( gerber2gcode.py — MODE: pocket )",
+        f"( Mecha: {cfg.POCKET_TOOL_MM} mm   Stepover: {stepover:.3f} mm"
+        f"  [{cfg.POCKET_STEPOVER_FRAC*100:.0f}%] )",
+        f"( Profundidad: {cfg.POCKET_DEPTH_MM} mm   Feed raster: {cfg.POCKET_FEED_RATE} mm/min"
+        f"   Finish: {cfg.POCKET_FINISH_FEED_RATE} mm/min )",
+        "G17", "G21", "G54", "G90",
+        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
+    ]
+    if cfg.SPINDLE_ON:
+        lines.append("S10000 M03")
+
+    for n, plan in enumerate(pocket_plans):
+        lines.append(f"( ── pad {n + 1} ── )")
+
+        for (x0, y0), (x1, y1) in plan['raster_segments']:
+            lines += [
+                f"G00 X{x0:.3f} Y{y0:.3f}",
+                f"G01 F{cfg.POCKET_PLUNGE_RATE} Z0",
+                f"G01 F{cfg.POCKET_PLUNGE_RATE} Z{cfg.POCKET_DEPTH_MM:.3f}",
+                f"G01 F{cfg.POCKET_FEED_RATE} X{x1:.3f} Y{y1:.3f}",
+                f"G00 Z{cfg.SAFE_Z_MM:.3f}",
+            ]
+
+        for perim in plan['perimeters']:
+            x0, y0 = perim[0]
+            lines += [
+                f"G00 X{x0:.3f} Y{y0:.3f}",
+                f"G01 F{cfg.POCKET_PLUNGE_RATE} Z0",
+                f"G01 F{cfg.POCKET_PLUNGE_RATE} Z{cfg.POCKET_DEPTH_MM:.3f}",
+            ]
+            for x, y in perim[1:]:
+                lines.append(f"G01 F{cfg.POCKET_FINISH_FEED_RATE} X{x:.3f} Y{y:.3f}")
+            lines.append(f"G00 Z{cfg.SAFE_Z_MM:.3f}")
+
+    lines += [f"G00 Z{cfg.SAFE_Z_MM:.3f}", "G00 X0 Y0", "M05", "M30"]
+    with open(output_path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
+
+
+# ─────────────────────────────────────────────
 # RUN (pipeline callable as library)
 # ─────────────────────────────────────────────
 
@@ -766,8 +912,22 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         generate_laser_gcode(paths, output_path, cfg=cfg, progress_cb=progress_cb)
         output_files.append(output_path)
 
+    elif cfg.MODE == "pocket":
+        (progress_cb or print)(
+            f"[✓] Pocket: mecha={cfg.POCKET_TOOL_MM}mm, "
+            f"stepover={cfg.POCKET_STEPOVER_FRAC*100:.0f}%, "
+            f"profundidad={cfg.POCKET_DEPTH_MM}mm"
+        )
+        (progress_cb or print)("[3/4] Calculando paths de pocket milling ...")
+        pocket_plans = compute_pocket_paths(indivs, cfg=cfg, progress_cb=progress_cb)
+        pocket_output = str(Path(output_path).with_suffix('')) + "-pocket.nc"
+        (progress_cb or print)(f"[4/4] Generando G-code → {pocket_output} ...")
+        generate_pocket_gcode(pocket_plans, pocket_output, cfg=cfg, progress_cb=progress_cb)
+        output_files.append(pocket_output)
+        paths = []
+
     else:
-        raise ValueError(f"MODE '{cfg.MODE}' desconocido. Usá 'mill' o 'laser'.")
+        raise ValueError(f"MODE '{cfg.MODE}' desconocido. Usá 'mill', 'laser' o 'pocket'.")
 
     if drl_paths:
         output_stem = str(Path(output_path).with_suffix(''))
