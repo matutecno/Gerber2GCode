@@ -6,3 +6,6 @@ __pycache__/
 # Archivos generados
 Gerbers/*.nc
 Gerbers/*.txt
+
+# Gerbers de referencia
+Reference_Gerbers/
