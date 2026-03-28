@@ -20,6 +20,7 @@ from gui.panels.params_panel import ParamsPanel
 from gui.help_dialog import HelpDialog
 from gui.align_dialog import AlignDialog
 from gui.probe_dialog import ProbeDialog
+from gui.changetip_dialog import ChangeTipDialog
 
 BG_DARK = '#1e1e1e'
 BG_PANEL = '#2d2d2d'
@@ -73,6 +74,9 @@ class App:
 
         ttk.Button(tb, text='Probe Heightmap',
                    command=self._on_probe).pack(side='left', padx=(0, 6))
+
+        ttk.Button(tb, text='Change Tip',
+                   command=self._on_change_tip).pack(side='left', padx=(0, 6))
 
         ttk.Button(tb, text='Clean Project',
                    command=self._on_clean).pack(side='left', padx=(0, 6))
@@ -194,6 +198,9 @@ class App:
         def _loaded(xyz_path):
             self.params_panel.set_heightmap(xyz_path)
         ProbeDialog(self.root, output_dir=output_dir, on_done=_loaded)
+
+    def _on_change_tip(self):
+        ChangeTipDialog(self.root)
 
     def _on_clean(self):
         output_dir = self.files_panel.get_output_dir()
