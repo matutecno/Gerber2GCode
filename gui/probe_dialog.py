@@ -336,11 +336,11 @@ class ProbeDialog(tk.Toplevel):
         raise TimeoutError('Timeout waiting for probe result')
 
     def _check_probe_connected(self, timeout=10):
-        """Probes 0.02 mm down (relative) to verify circuit continuity.
+        """Probes 0.1 mm down (relative) to verify circuit continuity.
         Returns True if triggered (:1), False if no contact (:0)."""
         self._grbl_cmd('G91')  # relative mode
         try:
-            self._serial.write(b'G38.2 Z-0.02 F5\n')
+            self._serial.write(b'G38.2 Z-0.1 F5\n')
             deadline = time.time() + timeout
             triggered = None
             while time.time() < deadline:
@@ -360,6 +360,7 @@ class ProbeDialog(tk.Toplevel):
             self._grbl_cmd('G90')  # always restore absolute mode
 
     def _grbl_get_wco(self, timeout=5):
+        self._serial.flushInput()
         self._serial.write(b'$#\n')
         deadline = time.time() + timeout
         wco = None
