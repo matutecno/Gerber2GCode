@@ -24,7 +24,6 @@ class ParamsPanel(ttk.Frame):
         self._add_laser_section()
         self._add_drill_section()
         self._add_slots_section()
-        self._add_pocket_section()
         self._add_ref_section()
 
     def _labeled_entry(self, parent, label, key, row, col=0, width=12):
@@ -55,7 +54,7 @@ class ParamsPanel(ttk.Frame):
         ttk.Label(lf, text='MODE').grid(row=0, column=0, sticky='w', padx=(4, 2), pady=2)
         mode_var = tk.StringVar()
         self._vars['MODE'] = mode_var
-        cb = ttk.Combobox(lf, textvariable=mode_var, values=['mill', 'laser', 'pocket'],
+        cb = ttk.Combobox(lf, textvariable=mode_var, values=['mill', 'laser'],
                           width=10, state='readonly')
         cb.grid(row=0, column=1, sticky='ew', padx=(0, 8), pady=2)
 
@@ -114,19 +113,6 @@ class ParamsPanel(ttk.Frame):
             ('SLOT_DEPTH_MM',   'SLOT_DEPTH_MM',   0, 1),
             ('SLOT_PLUNGE_RATE','SLOT_PLUNGE_RATE', 1, 0),
             ('SLOT_FEED_RATE',  'SLOT_FEED_RATE',  1, 1),
-        ]
-        for label, key, row, col in pairs:
-            self._labeled_entry(lf, label, key, row=row, col=col)
-
-    def _add_pocket_section(self):
-        lf = self._section('Pocket (Endmill)')
-        pairs = [
-            ('POCKET_TOOL_MM',          'POCKET_TOOL_MM',          0, 0),
-            ('POCKET_DEPTH_MM',         'POCKET_DEPTH_MM',         0, 1),
-            ('POCKET_STEPOVER_FRAC',    'POCKET_STEPOVER_FRAC',    1, 0),
-            ('POCKET_PLUNGE_RATE',      'POCKET_PLUNGE_RATE',      1, 1),
-            ('POCKET_FEED_RATE',        'POCKET_FEED_RATE',        2, 0),
-            ('POCKET_FINISH_FEED_RATE', 'POCKET_FINISH_FEED_RATE', 2, 1),
         ]
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
@@ -229,12 +215,6 @@ class ParamsPanel(ttk.Frame):
             'SLOT_DEPTH_MM':    defaults.SLOT_DEPTH_MM,
             'SLOT_PLUNGE_RATE': defaults.SLOT_PLUNGE_RATE,
             'SLOT_FEED_RATE':   defaults.SLOT_FEED_RATE,
-            'POCKET_TOOL_MM':          defaults.POCKET_TOOL_MM,
-            'POCKET_DEPTH_MM':         defaults.POCKET_DEPTH_MM,
-            'POCKET_STEPOVER_FRAC':    defaults.POCKET_STEPOVER_FRAC,
-            'POCKET_PLUNGE_RATE':      defaults.POCKET_PLUNGE_RATE,
-            'POCKET_FEED_RATE':        defaults.POCKET_FEED_RATE,
-            'POCKET_FINISH_FEED_RATE': defaults.POCKET_FINISH_FEED_RATE,
             'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
             'REF_CROSS_MM':     defaults.REF_CROSS_MM,
             'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,

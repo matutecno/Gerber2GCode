@@ -14,11 +14,7 @@ HELP_SECTIONS = [
          "  • mill   — V-bit isolation routing. The tool cuts channels in the\n"
          "             copper-clad board to isolate traces from each other.\n"
          "  • laser  — Laser engraving. The laser burns paint off the board\n"
-         "             in areas where there is no copper (toner-transfer method).\n"
-         "  • pocket — Endmill pocket milling. Each copper pad is milled out\n"
-         "             with a flat end-mill using raster zigzag passes followed\n"
-         "             by a slow perimeter finish pass. Useful for connector\n"
-         "             cavities and rectangular through-hole pads."),
+         "             in areas where there is no copper (toner-transfer method)."),
 
         ("MIRROR_X",
          "Mirror the design horizontally before generating G-code.\n"
@@ -38,11 +34,6 @@ HELP_SECTIONS = [
          "in the Gerber file. Set a manual value if auto-detection is wrong\n"
          "or if you want a wider isolation margin than the design minimum.\n"
          "The outermost mill pass is placed at CLEARANCE_MM from the copper edge."),
-
-        ("SPINDLE_ON",
-         "Emit S10000 M03 (spindle start) at the beginning of each G-code file.\n"
-         "Enable if your controller requires an explicit spindle command.\n"
-         "Leave disabled if spindle is started manually or controlled separately."),
     ]),
 
     ("Mill — V-bit", [
@@ -155,41 +146,6 @@ HELP_SECTIONS = [
          "Horizontal cutting speed inside slots (mm/min).\n"
          "Slower than isolation routing due to full-width chip load.\n"
          "Typical: 60 – 120 mm/min."),
-    ]),
-
-    ("Pocket — Endmill", [
-        ("POCKET_TOOL_MM",
-         "Diameter of the flat end-mill used for pocket milling (mm).\n"
-         "Pads narrower than this diameter are skipped automatically.\n"
-         "The tool center is confined to a region inset by POCKET_TOOL_MM/2\n"
-         "from each pad edge, so the tool never cuts outside the pad boundary."),
-
-        ("POCKET_DEPTH_MM",
-         "Depth to mill each pocket (mm, negative).\n"
-         "Set to the board thickness plus a small margin to cut fully through.\n"
-         "Typical: −1.6 to −2.0 mm for a standard 1.6 mm PCB."),
-
-        ("POCKET_STEPOVER_FRAC",
-         "Raster pass overlap as a fraction of POCKET_TOOL_MM (0.0 – 1.0).\n"
-         "0.65 means each pass overlaps 65% of the tool diameter, leaving\n"
-         "35% as fresh material per pass — a good balance between speed and\n"
-         "surface finish. Lower values leave ridges; higher values add passes."),
-
-        ("POCKET_PLUNGE_RATE",
-         "Vertical plunge speed when descending into the pocket (mm/min).\n"
-         "Keep slow to protect the end-mill on entry, especially for deep cuts.\n"
-         "Typical: 20 – 40 mm/min."),
-
-        ("POCKET_FEED_RATE",
-         "Horizontal cutting speed during raster fill passes (mm/min).\n"
-         "Full-width engagement puts more load on the tool than isolation routing,\n"
-         "so use a conservative value.\n"
-         "Typical: 60 – 150 mm/min depending on tool diameter and material."),
-
-        ("POCKET_FINISH_FEED_RATE",
-         "Speed for the perimeter finish pass that runs after the raster fill (mm/min).\n"
-         "Should be slower than POCKET_FEED_RATE for a cleaner wall finish.\n"
-         "Typical: 40 – 80 mm/min."),
     ]),
 
     ("Reference Marks", [
