@@ -243,7 +243,8 @@ class ProbeDialog(tk.Toplevel):
         total = len(points)
         safe_z = max(retract, 5.0)
         try:
-            self._grbl_cmd('G21 G90')
+            self._grbl_cmd('G21')
+            self._grbl_cmd('G90')
             self._grbl_cmd('G10 L20 P1 X0 Y0')   # current XY position = work (0,0)
             self._ui_log('Work origin set to current position.\n')
             wco = self._grbl_get_wco()
@@ -360,6 +361,7 @@ class ProbeDialog(tk.Toplevel):
             self._grbl_cmd('G90')  # always restore absolute mode
 
     def _grbl_get_wco(self, timeout=5):
+        time.sleep(0.15)          # esperar que GRBL termine de enviar respuestas pendientes
         self._serial.flushInput()
         self._serial.write(b'$#\n')
         deadline = time.time() + timeout
