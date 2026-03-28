@@ -68,8 +68,9 @@ class Config:
     # CONFIG RANURAS
     SLOT_TOOL_MM: float      = 1     # diámetro real de la fresa usada para ranuras
     SLOT_DEPTH_MM: float     = -1.6    # profundidad de ranuras (Z negativo)
-    SLOT_PLUNGE_RATE: float  = 10      # velocidad de bajada en ranuras (mm/min)
-    SLOT_FEED_RATE: float    = 10      # velocidad de corte en ranuras (mm/min)
+    SLOT_PLUNGE_RATE: float   = 10      # velocidad de bajada en ranuras (mm/min)
+    SLOT_FEED_RATE: float     = 10      # velocidad de corte en ranuras (mm/min)
+    SLOT_PASS_DEPTH_MM: float = -0.5   # profundidad por pasada (Z negativo); igual a SLOT_DEPTH_MM = pasada única
 
     # CONFIG MAPA DE ALTURAS
     HEIGHTMAP_FILE: Optional[str] = None  # ruta al .gcode autoleveled de UGS
@@ -78,9 +79,9 @@ class Config:
     EDGE_TOOL_MM: float       = 2.0    # diámetro de la fresa de troquelado (mm)
     EDGE_DEPTH_MM: float      = -1.7   # profundidad total de corte (Z negativo, debe atravesar la PCB)
     EDGE_PASS_DEPTH_MM: float = -0.5   # profundidad por pasada (Z negativo)
-    EDGE_FEED_RATE: float     = 100    # velocidad de corte horizontal (mm/min)
+    EDGE_FEED_RATE: float     = 20     # velocidad de corte horizontal (mm/min)
     EDGE_PLUNGE_RATE: float   = 20     # velocidad de bajada (mm/min)
-    EDGE_SAFE_Z_MM: float     = 2.0    # altura de viaje segura (mm)
+    EDGE_SAFE_Z_MM: float     = 3.0    # altura de viaje segura (mm)
 
 
 # ─────────────────────────────────────────────
@@ -760,18 +761,26 @@ def generate_slots_gcode(slots: list, output_path: str, cfg: Config = None):
 
         offsets = [-offset, 0.0, offset] if offset > 1e-6 else [0.0]
 
-        lines.append(f"( slot ø{diam:.3f}mm — fresa {cfg.SLOT_TOOL_MM:.3f}mm — {len(offsets)} pasada(s) )")
+        depths = []
+        z = cfg.SLOT_PASS_DEPTH_MM
+        while z > cfg.SLOT_DEPTH_MM:
+            depths.append(round(z, 6))
+            z += cfg.SLOT_PASS_DEPTH_MM
+        depths.append(cfg.SLOT_DEPTH_MM)
+
+        lines.append(f"( slot ø{diam:.3f}mm — fresa {cfg.SLOT_TOOL_MM:.3f}mm — {len(offsets)} pasada(s) lateral(es) × {len(depths)} profundidad(es) )")
         for o in offsets:
             ax = x1 + px * o
             ay = y1 + py * o
             bx = x2 + px * o
             by = y2 + py * o
-            lines += [
-                f"G00 X{ax:.3f} Y{ay:.3f}",
-                f"G01 F{cfg.SLOT_PLUNGE_RATE} Z{cfg.SLOT_DEPTH_MM:.3f}",
-                f"G01 F{cfg.SLOT_FEED_RATE} X{bx:.3f} Y{by:.3f}",
-                f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
-            ]
+            for depth in depths:
+                lines += [
+                    f"G00 X{ax:.3f} Y{ay:.3f}",
+                    f"G01 F{cfg.SLOT_PLUNGE_RATE} Z{depth:.4f}",
+                    f"G01 F{cfg.SLOT_FEED_RATE} X{bx:.3f} Y{by:.3f}",
+                    f"G00 Z{cfg.DRILL_SAFE_Z_MM:.3f}",
+                ]
 
     lines += ["G00 X0 Y0", "M05", "M30"]
     with open(output_path, 'w') as f:

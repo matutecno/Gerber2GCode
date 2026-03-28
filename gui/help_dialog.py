@@ -146,6 +146,13 @@ HELP_SECTIONS = [
          "Horizontal cutting speed inside slots (mm/min).\n"
          "Slower than isolation routing due to full-width chip load.\n"
          "Typical: 60 – 120 mm/min."),
+
+        ("SLOT_PASS_DEPTH_MM",
+         "Depth increment per pass (mm, negative).\n"
+         "The slot is cut in multiple passes to avoid overloading fragile bits.\n"
+         "Example: −0.5 with SLOT_DEPTH_MM = −1.6 → 4 passes at −0.5, −1.0, −1.5, −1.6 mm.\n"
+         "Each lateral offset pass repeats the full depth sequence.\n"
+         "Set equal to SLOT_DEPTH_MM for a single full-depth pass (legacy behaviour)."),
     ]),
 
     ("Height Map (autoleveling)", [

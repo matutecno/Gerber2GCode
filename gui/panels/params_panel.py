@@ -112,10 +112,11 @@ class ParamsPanel(ttk.Frame):
     def _add_slots_section(self):
         lf = self._section('Slots')
         pairs = [
-            ('SLOT_TOOL_MM',    'SLOT_TOOL_MM',    0, 0),
-            ('SLOT_DEPTH_MM',   'SLOT_DEPTH_MM',   0, 1),
-            ('SLOT_PLUNGE_RATE','SLOT_PLUNGE_RATE', 1, 0),
-            ('SLOT_FEED_RATE',  'SLOT_FEED_RATE',  1, 1),
+            ('SLOT_TOOL_MM',      'SLOT_TOOL_MM',      0, 0),
+            ('SLOT_DEPTH_MM',     'SLOT_DEPTH_MM',     0, 1),
+            ('SLOT_PLUNGE_RATE',  'SLOT_PLUNGE_RATE',  1, 0),
+            ('SLOT_FEED_RATE',    'SLOT_FEED_RATE',    1, 1),
+            ('SLOT_PASS_DEPTH_MM','SLOT_PASS_DEPTH_MM', 2, 0),
         ]
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
@@ -252,10 +253,11 @@ class ParamsPanel(ttk.Frame):
             'DRILL_SAFE_Z_MM':  defaults.DRILL_SAFE_Z_MM,
             'DRILL_DEPTH_MM':   defaults.DRILL_DEPTH_MM,
             'DRILL_FEED_RATE':  defaults.DRILL_FEED_RATE,
-            'SLOT_TOOL_MM':     defaults.SLOT_TOOL_MM,
-            'SLOT_DEPTH_MM':    defaults.SLOT_DEPTH_MM,
-            'SLOT_PLUNGE_RATE': defaults.SLOT_PLUNGE_RATE,
-            'SLOT_FEED_RATE':   defaults.SLOT_FEED_RATE,
+            'SLOT_TOOL_MM':       defaults.SLOT_TOOL_MM,
+            'SLOT_DEPTH_MM':      defaults.SLOT_DEPTH_MM,
+            'SLOT_PLUNGE_RATE':   defaults.SLOT_PLUNGE_RATE,
+            'SLOT_FEED_RATE':     defaults.SLOT_FEED_RATE,
+            'SLOT_PASS_DEPTH_MM': defaults.SLOT_PASS_DEPTH_MM,
             'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
             'REF_CROSS_MM':     defaults.REF_CROSS_MM,
             'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,
