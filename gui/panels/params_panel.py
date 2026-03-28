@@ -127,6 +127,8 @@ class ParamsPanel(ttk.Frame):
             ('POCKET_PLUNGE_RATE',      'POCKET_PLUNGE_RATE',      1, 1),
             ('POCKET_FEED_RATE',        'POCKET_FEED_RATE',        2, 0),
             ('POCKET_FINISH_FEED_RATE', 'POCKET_FINISH_FEED_RATE', 2, 1),
+            ('POCKET_MIN_AREA_MM2',     'POCKET_MIN_AREA_MM2',     3, 0),
+            ('POCKET_MAX_AREA_MM2',     'POCKET_MAX_AREA_MM2',     3, 1),
         ]
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
@@ -235,6 +237,8 @@ class ParamsPanel(ttk.Frame):
             'POCKET_PLUNGE_RATE':      defaults.POCKET_PLUNGE_RATE,
             'POCKET_FEED_RATE':        defaults.POCKET_FEED_RATE,
             'POCKET_FINISH_FEED_RATE': defaults.POCKET_FINISH_FEED_RATE,
+            'POCKET_MIN_AREA_MM2':     defaults.POCKET_MIN_AREA_MM2,
+            'POCKET_MAX_AREA_MM2':     defaults.POCKET_MAX_AREA_MM2,
             'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
             'REF_CROSS_MM':     defaults.REF_CROSS_MM,
             'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,

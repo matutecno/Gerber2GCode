@@ -80,6 +80,8 @@ class Config:
     POCKET_PLUNGE_RATE: float      = 30    # velocidad de bajada (mm/min)
     POCKET_FEED_RATE: float        = 100   # velocidad de pasadas raster (mm/min)
     POCKET_FINISH_FEED_RATE: float = 50    # velocidad de pasada final de perímetro (mm/min)
+    POCKET_MIN_AREA_MM2: float     = 1.0   # área mínima del pad para ser fresado (mm²)
+    POCKET_MAX_AREA_MM2: float     = 20.0  # área máxima del pad (excluye copper pours)
 
 
 # ─────────────────────────────────────────────
@@ -117,6 +119,8 @@ POCKET_DEPTH_MM         = _default_cfg.POCKET_DEPTH_MM
 POCKET_PLUNGE_RATE      = _default_cfg.POCKET_PLUNGE_RATE
 POCKET_FEED_RATE        = _default_cfg.POCKET_FEED_RATE
 POCKET_FINISH_FEED_RATE = _default_cfg.POCKET_FINISH_FEED_RATE
+POCKET_MIN_AREA_MM2     = _default_cfg.POCKET_MIN_AREA_MM2
+POCKET_MAX_AREA_MM2     = _default_cfg.POCKET_MAX_AREA_MM2
 
 
 def mirror_geometry(geom, cx: float):
@@ -740,6 +744,9 @@ def compute_pocket_paths(individuals: list, cfg: Config = None,
     skipped = 0
 
     for poly in individuals:
+        if poly.area < cfg.POCKET_MIN_AREA_MM2 or poly.area > cfg.POCKET_MAX_AREA_MM2:
+            skipped += 1
+            continue
         inset = poly.buffer(-tool_radius, join_style=2, cap_style=2)
         if inset.is_empty:
             skipped += 1
@@ -796,7 +803,8 @@ def compute_pocket_paths(individuals: list, cfg: Config = None,
             plans.append({'raster_segments': all_segments, 'perimeters': all_perimeters})
 
     (progress_cb or print)(
-        f"    → {len(plans)} pad(s) a fresar, {skipped} ignorado(s) (mecha no entra)"
+        f"    → {len(plans)} pad(s) a fresar, {skipped} ignorado(s) "
+        f"(fuera de [{cfg.POCKET_MIN_AREA_MM2}, {cfg.POCKET_MAX_AREA_MM2}] mm² o mecha no entra)"
     )
     return plans
 

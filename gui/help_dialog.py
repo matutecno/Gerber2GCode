@@ -190,6 +190,19 @@ HELP_SECTIONS = [
          "Speed for the perimeter finish pass that runs after the raster fill (mm/min).\n"
          "Should be slower than POCKET_FEED_RATE for a cleaner wall finish.\n"
          "Typical: 40 – 80 mm/min."),
+
+        ("POCKET_MIN_AREA_MM2",
+         "Minimum pad area (mm²) to be pocket-milled.\n"
+         "Pads smaller than this are skipped (SMD pads, thin traces).\n"
+         "Example: 1.0 skips anything smaller than a 1×1 mm square.\n"
+         "Adjust together with POCKET_MAX_AREA_MM2 to target a specific pad size range."),
+
+        ("POCKET_MAX_AREA_MM2",
+         "Maximum pad area (mm²) to be pocket-milled.\n"
+         "Pads larger than this are skipped — use this to exclude large copper pours\n"
+         "and ground planes that should not be milled out entirely.\n"
+         "Example: 20.0 allows pads up to ~4×5 mm while ignoring copper fills.\n"
+         "Set very high (e.g. 9999) to disable the upper limit."),
     ]),
 
     ("Reference Marks", [
