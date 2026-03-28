@@ -44,6 +44,7 @@ class App:
         self._build_statusbar()
 
         self._refresh_history_list()
+        self._restore_output_dir()
         self.root.after(50, self._init_sash_positions)
 
     def _init_sash_positions(self):
@@ -333,6 +334,13 @@ class App:
             self._poll_job = None
 
     # ── History ───────────────────────────────────────────────────────────
+
+    def _restore_output_dir(self):
+        entries = hist.load_all()
+        if entries:
+            out = entries[0].get('output_dir', '')
+            if out and Path(out).exists():
+                self.files_panel.set_output_dir(out)
 
     def _refresh_history_list(self):
         for row in self._hist_tree.get_children():

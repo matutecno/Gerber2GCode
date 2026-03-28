@@ -103,6 +103,9 @@ class FilesPanel(ttk.Frame):
     def get_output_dir(self) -> str:
         return self._out_var.get().strip()
 
+    def set_output_dir(self, path: str):
+        self._out_var.set(path)
+
     def load_config(self, d: dict):
         """Set paths from a history entry dict."""
         if d.get('gbr_path'):
