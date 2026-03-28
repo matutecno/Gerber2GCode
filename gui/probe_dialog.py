@@ -264,9 +264,13 @@ class ProbeDialog(tk.Toplevel):
                 progress = (i + 1) / total * 100
                 self.after(0, lambda p=progress: self._progress.configure(value=p))
 
+            self._grbl_cmd(f'G0 Z{retract:.3f}')
+            self._grbl_cmd('G0 X0 Y0')
+            self._ui_log('Returned to origin.\n')
+
             if len(results) == total and not self._stop_flag.is_set():
                 _save_xyz(out_path, results)
-                self._ui_log(f'\nSaved {len(results)} points → {out_path}\n')
+                self._ui_log(f'Saved {len(results)} points → {out_path}\n')
                 self.after(0, lambda: self._on_probe_done(out_path))
             else:
                 self._ui_log(f'Incomplete: {len(results)}/{total} points probed.\n')
