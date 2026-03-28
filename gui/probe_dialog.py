@@ -61,35 +61,35 @@ class ProbeDialog(tk.Toplevel):
         pf.pack(fill='x', **pad)
 
         ttk.Label(pf, text='Grid cols').grid(row=0, column=0, sticky='e', padx=(4, 2), pady=3)
-        self._cols_var = tk.StringVar(value='5')
+        self._cols_var = tk.StringVar(value='14')
         ttk.Entry(pf, textvariable=self._cols_var, width=6).grid(row=0, column=1, sticky='w', padx=(0, 12))
         ttk.Label(pf, text='Rows').grid(row=0, column=2, sticky='e', padx=(4, 2))
-        self._rows_var = tk.StringVar(value='5')
+        self._rows_var = tk.StringVar(value='14')
         ttk.Entry(pf, textvariable=self._rows_var, width=6).grid(row=0, column=3, sticky='w')
 
         ttk.Label(pf, text='X start (mm)').grid(row=1, column=0, sticky='e', padx=(4, 2), pady=3)
         self._x0_var = tk.StringVar(value='0')
         ttk.Entry(pf, textvariable=self._x0_var, width=8).grid(row=1, column=1, sticky='w', padx=(0, 12))
         ttk.Label(pf, text='X end (mm)').grid(row=1, column=2, sticky='e', padx=(4, 2))
-        self._x1_var = tk.StringVar(value='50')
+        self._x1_var = tk.StringVar(value='100')
         ttk.Entry(pf, textvariable=self._x1_var, width=8).grid(row=1, column=3, sticky='w')
 
         ttk.Label(pf, text='Y start (mm)').grid(row=2, column=0, sticky='e', padx=(4, 2), pady=3)
         self._y0_var = tk.StringVar(value='0')
         ttk.Entry(pf, textvariable=self._y0_var, width=8).grid(row=2, column=1, sticky='w', padx=(0, 12))
         ttk.Label(pf, text='Y end (mm)').grid(row=2, column=2, sticky='e', padx=(4, 2))
-        self._y1_var = tk.StringVar(value='50')
+        self._y1_var = tk.StringVar(value='100')
         ttk.Entry(pf, textvariable=self._y1_var, width=8).grid(row=2, column=3, sticky='w')
 
         ttk.Label(pf, text='Probe depth (mm)').grid(row=3, column=0, sticky='e', padx=(4, 2), pady=3)
-        self._probe_z_var = tk.StringVar(value='-2')
+        self._probe_z_var = tk.StringVar(value='-0.75')
         ttk.Entry(pf, textvariable=self._probe_z_var, width=8).grid(row=3, column=1, sticky='w', padx=(0, 12))
         ttk.Label(pf, text='Feed (mm/min)').grid(row=3, column=2, sticky='e', padx=(4, 2))
         self._feed_var = tk.StringVar(value='20')
         ttk.Entry(pf, textvariable=self._feed_var, width=8).grid(row=3, column=3, sticky='w')
 
         ttk.Label(pf, text='Retract Z (mm)').grid(row=4, column=0, sticky='e', padx=(4, 2), pady=3)
-        self._retract_var = tk.StringVar(value='2')
+        self._retract_var = tk.StringVar(value='1')
         ttk.Entry(pf, textvariable=self._retract_var, width=8).grid(row=4, column=1, sticky='w', padx=(0, 12))
 
         # Output
