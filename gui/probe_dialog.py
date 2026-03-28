@@ -271,7 +271,12 @@ class ProbeDialog(tk.Toplevel):
                 self._grbl_cmd('G4 P0')
                 self._ui_log(f'Probing ({x:.2f}, {y:.2f})... ')
 
-                mx, my, mz = self._grbl_probe(f'G38.2 Z{probe_z:.3f} F{feed:.0f}')
+                probe_travel = retract + abs(probe_z)
+                self._grbl_cmd('G91')
+                try:
+                    mx, my, mz = self._grbl_probe(f'G38.2 Z-{probe_travel:.3f} F{feed:.0f}')
+                finally:
+                    self._grbl_cmd('G90')
                 wz = mz - wco[2]
                 results.append((x, y, wz))
                 self._ui_log(f'Z = {wz:.4f}\n')
@@ -286,6 +291,10 @@ class ProbeDialog(tk.Toplevel):
             self._grbl_cmd('G4 P0')
             self._grbl_cmd('G0 X0 Y0')
             self._ui_log('Returned to origin.\n')
+
+            if results:
+                origin_z = results[0][2]
+                results = [(x, y, z - origin_z) for x, y, z in results]
 
             if len(results) == total and not self._stop_flag.is_set():
                 _save_xyz(out_path, results)
