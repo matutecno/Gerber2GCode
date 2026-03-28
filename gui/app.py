@@ -73,6 +73,9 @@ class App:
         ttk.Button(tb, text='Probe Heightmap',
                    command=self._on_probe).pack(side='left', padx=(0, 6))
 
+        ttk.Button(tb, text='Clean Project',
+                   command=self._on_clean).pack(side='left', padx=(0, 6))
+
         ttk.Button(tb, text='Help',
                    command=self._on_help).pack(side='left')
 
@@ -190,6 +193,41 @@ class App:
         def _loaded(xyz_path):
             self.params_panel.set_heightmap(xyz_path)
         ProbeDialog(self.root, output_dir=output_dir, on_done=_loaded)
+
+    def _on_clean(self):
+        output_dir = self.files_panel.get_output_dir()
+        gbr = self.files_panel.get_gbr_path()
+        if not output_dir and gbr:
+            output_dir = str(Path(gbr).parent)
+        if not output_dir:
+            messagebox.showerror('Clean Project', 'No output directory set.', parent=self.root)
+            return
+
+        targets = list(Path(output_dir).glob('*.nc')) + list(Path(output_dir).glob('*.xyz'))
+        if not targets:
+            messagebox.showinfo('Clean Project', 'No .nc or .xyz files found.', parent=self.root)
+            return
+
+        names = '\n'.join(f.name for f in sorted(targets))
+        if not messagebox.askyesno(
+            'Clean Project',
+            f'Delete {len(targets)} file(s) from:\n{output_dir}\n\n{names}',
+            parent=self.root,
+        ):
+            return
+
+        deleted, failed = 0, []
+        for f in targets:
+            try:
+                f.unlink()
+                deleted += 1
+            except Exception as e:
+                failed.append(f'{f.name}: {e}')
+
+        msg = f'{deleted} file(s) deleted.'
+        if failed:
+            msg += '\nFailed:\n' + '\n'.join(failed)
+        self._status_var.set(msg)
 
     def _on_help(self):
         HelpDialog(self.root)
