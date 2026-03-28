@@ -66,7 +66,7 @@ class ChangeTipDialog(tk.Toplevel):
         pf = ttk.LabelFrame(self, text='Raise height')
         pf.pack(fill='x', **pad)
         ttk.Label(pf, text='Z raise (mm)').grid(row=0, column=0, sticky='e', padx=(6, 2), pady=4)
-        self._raise_var = tk.StringVar(value='40')
+        self._raise_var = tk.StringVar(value='100')
         ttk.Entry(pf, textvariable=self._raise_var, width=8).grid(row=0, column=1, sticky='w', pady=4)
 
         # Step 1 & 2 buttons
