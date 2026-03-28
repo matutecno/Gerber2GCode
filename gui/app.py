@@ -18,6 +18,7 @@ from gui.panels.preview_panel import PreviewPanel
 from gui.panels.files_panel import FilesPanel
 from gui.panels.params_panel import ParamsPanel
 from gui.help_dialog import HelpDialog
+from gui.align_dialog import AlignDialog
 
 BG_DARK = '#1e1e1e'
 BG_PANEL = '#2d2d2d'
@@ -64,6 +65,9 @@ class App:
 
         ttk.Button(tb, text='Reset Defaults',
                    command=self._on_reset_defaults).pack(side='left', padx=(0, 6))
+
+        ttk.Button(tb, text='Align Drills',
+                   command=self._on_align).pack(side='left', padx=(0, 6))
 
         ttk.Button(tb, text='Help',
                    command=self._on_help).pack(side='left')
@@ -165,6 +169,17 @@ class App:
 
     def _on_reset_defaults(self):
         self.params_panel.reset_defaults()
+
+    def _on_align(self):
+        # Auto-detect ref.txt from last generated output
+        ref_txt = ''
+        entries = hist.load_all()
+        if entries:
+            for f in reversed(entries[-1].get('output_files', [])):
+                if f.endswith('-ref.txt') and Path(f).exists():
+                    ref_txt = f
+                    break
+        AlignDialog(self.root, ref_txt_path=ref_txt)
 
     def _on_help(self):
         HelpDialog(self.root)
