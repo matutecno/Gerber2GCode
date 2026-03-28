@@ -244,6 +244,8 @@ class ProbeDialog(tk.Toplevel):
         safe_z = max(retract, 5.0)
         try:
             self._grbl_cmd('G21 G90')
+            self._grbl_cmd('G10 L20 P1 X0 Y0')   # current XY position = work (0,0)
+            self._ui_log('Work origin set to current position.\n')
             wco = self._grbl_get_wco()
             self._ui_log(f'WCO G54: X={wco[0]:.3f} Y={wco[1]:.3f} Z={wco[2]:.3f}\n')
 
