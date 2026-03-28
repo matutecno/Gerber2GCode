@@ -41,7 +41,8 @@ class GenerationWorker(threading.Thread):
 
             # Derive output path from gbr_path and output_dir
             gbr_stem = Path(self.gbr_path).stem
-            output_dir = Path(self.output_dir) if self.output_dir else Path(self.gbr_path).parent
+            output_dir = Path(self.output_dir) if self.output_dir else Path(self.gbr_path).parent.parent / "Outputs"
+            output_dir.mkdir(parents=True, exist_ok=True)
             output_path = str(output_dir / f"{gbr_stem}.nc")
 
             def progress_cb(msg):

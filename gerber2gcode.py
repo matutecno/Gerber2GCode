@@ -58,10 +58,10 @@ class Config:
     DRILL_SIZES: List[float] = field(default_factory=lambda: [0.8, 1.0, 1.25, 3.0])
     DRILL_SAFE_Z_MM: float   = 1.0     # altura de viaje segura
     DRILL_DEPTH_MM: float    = -1.6    # profundidad de taladrado (Z negativo)
-    DRILL_FEED_RATE: float   = 50      # velocidad de taladrado (mm/min)
+    DRILL_FEED_RATE: float   = 20      # velocidad de taladrado (mm/min)
 
     # CONFIG MARCAS DE REFERENCIA
-    REF_MARK_DEPTH_MM: float = -0.15   # profundidad de corte de la cruz (solo visible, no pasante)
+    REF_MARK_DEPTH_MM: float = -0.06   # profundidad de corte de la cruz (solo visible, no pasante)
     REF_CROSS_MM: float      = 3.0     # longitud total del brazo de la cruz "+" (mm)
     REF_OFFSET_MM: float     = 0       # distancia desde el borde del PCB al centro de la cruz (mm)
 
@@ -70,6 +70,9 @@ class Config:
     SLOT_DEPTH_MM: float     = -1.6    # profundidad de ranuras (Z negativo)
     SLOT_PLUNGE_RATE: float  = 10      # velocidad de bajada en ranuras (mm/min)
     SLOT_FEED_RATE: float    = 10      # velocidad de corte en ranuras (mm/min)
+
+    # CONFIG MAPA DE ALTURAS
+    HEIGHTMAP_FILE: Optional[str] = None  # ruta al .gcode autoleveled de UGS
 
 
 # ─────────────────────────────────────────────
@@ -320,6 +323,132 @@ def generate_mill_gcode(paths: list, output_path: str, clearance: float,
 
 
 # ─────────────────────────────────────────────
+# MAPA DE ALTURAS (autoleveling)
+# ─────────────────────────────────────────────
+
+def _parse_heightmap(path: str, safe_z: float = 0.0, max_probes: int = 200):
+    """
+    Lee un mapa de alturas y retorna lista de (x, y, correction).
+    Soporta dos formatos:
+      - .xyz  (export de UGS): cada línea "X Y Z", Z es la corrección directa.
+      - .gcode autoleveled: extrae viajes G0 con XYZ; correction = Z - safe_z.
+    """
+    if path.endswith('.xyz'):
+        raw = []
+        with open(path, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) == 3:
+                    try:
+                        raw.append((float(parts[0]), float(parts[1]), float(parts[2])))
+                    except ValueError:
+                        pass
+        if not raw:
+            raise ValueError(f"No se encontraron puntos en {path}")
+        return raw
+
+    # formato .gcode autoleveled
+    pat = re.compile(r'G0[01]?\s*X\s*([-\d.]+)\s*Y\s*([-\d.]+)\s*Z([-\d.]+)', re.IGNORECASE)
+    raw = []
+    with open(path, 'r') as f:
+        for line in f:
+            m = pat.search(line)
+            if m:
+                x, y, z = float(m.group(1)), float(m.group(2)), float(m.group(3))
+                if z > 0:
+                    raw.append((x, y, z - safe_z))
+    if not raw:
+        raise ValueError(f"No se encontraron puntos de prueba en {path}")
+    if len(raw) <= max_probes:
+        return raw
+    xs = [p[0] for p in raw]; ys = [p[1] for p in raw]
+    x0, x1 = min(xs), max(xs); y0, y1 = min(ys), max(ys)
+    n = max(1, int(math.sqrt(max_probes)))
+    cw = max((x1 - x0) / n, 1e-6); ch = max((y1 - y0) / n, 1e-6)
+    cells: dict = {}
+    for x, y, c in raw:
+        i = min(int((x - x0) / cw), n - 1)
+        j = min(int((y - y0) / ch), n - 1)
+        cells.setdefault((i, j), []).append((x, y, c))
+    result = []
+    for pts in cells.values():
+        result.append((
+            sum(p[0] for p in pts) / len(pts),
+            sum(p[1] for p in pts) / len(pts),
+            sum(p[2] for p in pts) / len(pts),
+        ))
+    return result
+
+
+def _idw_correction(px: float, py: float, probes: list, power: float = 2.0) -> float:
+    """Corrección IDW en (px, py) a partir de lista de (x, y, correction)."""
+    dists = [math.hypot(px - x, py - y) for x, y, _ in probes]
+    min_d = min(dists)
+    if min_d < 1e-9:
+        return probes[dists.index(min_d)][2]
+    weights = [1.0 / (d ** power) for d in dists]
+    total = sum(weights)
+    return sum(w * p[2] for w, p in zip(weights, probes)) / total
+
+
+def apply_heightmap_to_gcode(input_path: str, output_path: str, probes: list,
+                              cfg: Config = None, progress_cb=None):
+    """Post-procesa un G-code plano aplicando corrección de altura por IDW."""
+    if cfg is None:
+        cfg = Config()
+    (progress_cb or print)(f"[HM] Aplicando mapa de alturas ({len(probes)} puntos) → {output_path} ...")
+
+    try:
+        import numpy as np
+        pts_arr = np.array([(x, y) for x, y, _ in probes])
+        corr_arr = np.array([c for _, _, c in probes])
+        def interp(x, y):
+            d = np.maximum(np.hypot(pts_arr[:, 0] - x, pts_arr[:, 1] - y), 1e-9)
+            w = 1.0 / d ** 2
+            return float((w * corr_arr).sum() / w.sum())
+    except ImportError:
+        def interp(x, y):
+            return _idw_correction(x, y, probes)
+
+    re_z_only  = re.compile(r'^(G0[01]\s+(?:F\d+\s+)?)(Z)([-\d.]+)\s*$', re.IGNORECASE)
+    re_xy_trav = re.compile(r'^(G00\s{1,2}X)([-\d.]+)(\s+Y)([-\d.]+)\s*$', re.IGNORECASE)
+    re_xy_cut  = re.compile(r'^(G01\s+F\d+\s+X)([-\d.]+)(\s+Y)([-\d.]+)\s*$', re.IGNORECASE)
+
+    cur_x = cur_y = 0.0
+    out_lines = []
+
+    with open(input_path, 'r') as f:
+        for line in f:
+            s = line.rstrip('\n')
+
+            m = re_z_only.match(s)
+            if m:
+                z_new = float(m.group(3)) + interp(cur_x, cur_y)
+                out_lines.append(f"{m.group(1)}Z{z_new:.4f}")
+                continue
+
+            m = re_xy_trav.match(s)
+            if m:
+                cur_x, cur_y = float(m.group(2)), float(m.group(4))
+                z_new = cfg.SAFE_Z_MM + interp(cur_x, cur_y)
+                out_lines.append(f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}Z{z_new:.4f}")
+                continue
+
+            m = re_xy_cut.match(s)
+            if m:
+                cur_x, cur_y = float(m.group(2)), float(m.group(4))
+                z_new = cfg.CUT_DEPTH_MM + interp(cur_x, cur_y)
+                out_lines.append(f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}Z{z_new:.4f}")
+                continue
+
+            out_lines.append(s)
+
+    with open(output_path, 'w') as f:
+        f.write('\n'.join(out_lines) + '\n')
+    (progress_cb or print)(f"    ✓ {len(out_lines)} líneas escritas")
+
+
+# ─────────────────────────────────────────────
 # MODO LÁSER
 # ─────────────────────────────────────────────
 
@@ -474,13 +603,10 @@ def generate_ref_marks(board_w: float, board_h: float, output_stem: str, cfg: Co
 # ─────────────────────────────────────────────
 
 def map_drill_size(diam: float, cfg: Config = None) -> float:
-    """Asigna el diámetro a la broca disponible inmediata superior en DRILL_SIZES."""
+    """Asigna el diámetro a la broca más cercana en DRILL_SIZES."""
     if cfg is None:
         cfg = Config()
-    for size in sorted(cfg.DRILL_SIZES):
-        if diam <= size + 1e-6:
-            return size
-    return sorted(cfg.DRILL_SIZES)[-1]
+    return min(cfg.DRILL_SIZES, key=lambda s: abs(s - diam))
 
 
 def parse_excellon(path: str) -> dict:
@@ -770,6 +896,13 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         (progress_cb or print)(f"[4/4] Generando G-code → {output_path} ...")
         generate_mill_gcode(paths, output_path, clearance, board_w, board_h, cfg=cfg, progress_cb=progress_cb)
         output_files.append(output_path)
+        if cfg.HEIGHTMAP_FILE:
+            probes = _parse_heightmap(cfg.HEIGHTMAP_FILE, cfg.SAFE_Z_MM)
+            stem = str(Path(output_path).with_suffix(''))
+            ext  = Path(output_path).suffix
+            leveled_path = f"{stem}-leveled{ext}"
+            apply_heightmap_to_gcode(output_path, leveled_path, probes, cfg=cfg, progress_cb=progress_cb)
+            output_files.append(leveled_path)
 
     elif cfg.MODE == "laser":
         (progress_cb or print)(f"[✓] Láser: potencia=S{cfg.LASER_POWER}, feed={cfg.LASER_FEED_RATE} mm/min, paso={cfg.LASER_PASS_MM} mm")

@@ -56,9 +56,8 @@ class FilesPanel(ttk.Frame):
         )
         if path:
             self._gbr_var.set(path)
-            # Default output dir to same dir as GBR if not already set
             if not self._out_var.get():
-                self._out_var.set(str(Path(path).parent))
+                self._out_var.set(str(Path(path).parent.parent / "Outputs"))
 
     def _browse_out(self):
         path = filedialog.askdirectory(title='Select output directory')
