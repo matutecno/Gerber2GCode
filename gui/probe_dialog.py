@@ -245,20 +245,15 @@ class ProbeDialog(tk.Toplevel):
         try:
             self._grbl_cmd('G21')
             self._grbl_cmd('G90')
-            self._grbl_cmd('G10 L20 P1 X0 Y0')   # current XY position = work (0,0)
+            self._grbl_cmd('G92.1')               # clear any residual G92 offsets
+            self._grbl_cmd('G10 L20 P1 X0 Y0')   # set current XY as work (0,0)
+            self._grbl_cmd('G10 L20 P1 Z0')       # set current Z as work Z=0
             self._ui_log('Work origin set to current position.\n')
             wco = self._grbl_get_wco()
             self._ui_log(f'WCO G54: X={wco[0]:.3f} Y={wco[1]:.3f} Z={wco[2]:.3f}\n')
 
-            self._ui_log('Checking probe connectivity... ')
-            connected = self._check_probe_connected()
             self._grbl_cmd(f'G0 Z{safe_z:.3f}')
             self._grbl_cmd('G4 P0')
-            if not connected:
-                raise RuntimeError(
-                    'Probe not connected — check crocodile clip and cable'
-                )
-            self._ui_log('OK\n')
 
             for i, (x, y) in enumerate(points):
                 if self._stop_flag.is_set():
@@ -346,18 +341,6 @@ class ProbeDialog(tk.Toplevel):
             elif line.startswith('ALARM'):
                 raise RuntimeError('GRBL ALARM during probe')
         raise TimeoutError('Timeout waiting for probe result')
-
-    def _check_probe_connected(self, timeout=5):
-        """Checks probe pin state via status report — no physical movement.
-        Returns True if probe pin is active (Pn:P), False otherwise."""
-        self._serial.flushInput()
-        self._serial.write(b'?')
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            line = self._serial.readline().decode('ascii', errors='ignore').strip()
-            if line.startswith('<'):
-                return 'Pn:P' in line
-        raise TimeoutError('Timeout reading machine status')
 
     def _grbl_get_wco(self, timeout=5):
         time.sleep(0.15)          # esperar que GRBL termine de enviar respuestas pendientes
