@@ -392,10 +392,12 @@ def _idw_correction(px: float, py: float, probes: list, power: float = 2.0) -> f
 
 
 def apply_heightmap_to_gcode(input_path: str, output_path: str, probes: list,
-                              cfg: Config = None, progress_cb=None):
+                              cfg: Config = None, safe_z: float = None, progress_cb=None):
     """Post-procesa un G-code plano aplicando corrección de altura por IDW."""
     if cfg is None:
         cfg = Config()
+    if safe_z is None:
+        safe_z = cfg.SAFE_Z_MM
     (progress_cb or print)(f"[HM] Aplicando mapa de alturas ({len(probes)} puntos) → {output_path} ...")
 
     try:
@@ -430,7 +432,7 @@ def apply_heightmap_to_gcode(input_path: str, output_path: str, probes: list,
             m = re_xy_trav.match(s)
             if m:
                 cur_x, cur_y = float(m.group(2)), float(m.group(4))
-                z_new = cfg.SAFE_Z_MM + interp(cur_x, cur_y)
+                z_new = safe_z + interp(cur_x, cur_y)
                 out_lines.append(f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(4)}Z{z_new:.4f}")
                 continue
 
@@ -874,6 +876,8 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
     _drill_holes = {}   # {diam: [(x,y), ...]} — populated below if drills present
     _drill_slots = []   # [(x1,y1,x2,y2,diam), ...]
 
+    probes = _parse_heightmap(cfg.HEIGHTMAP_FILE, cfg.SAFE_Z_MM) if cfg.HEIGHTMAP_FILE else []
+
     if cfg.MODE == "mill":
         d_eff = effective_tool_diameter(cfg)
         tool_radius = d_eff / 2.0
@@ -896,8 +900,7 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         (progress_cb or print)(f"[4/4] Generando G-code → {output_path} ...")
         generate_mill_gcode(paths, output_path, clearance, board_w, board_h, cfg=cfg, progress_cb=progress_cb)
         output_files.append(output_path)
-        if cfg.HEIGHTMAP_FILE:
-            probes = _parse_heightmap(cfg.HEIGHTMAP_FILE, cfg.SAFE_Z_MM)
+        if probes:
             stem = str(Path(output_path).with_suffix(''))
             ext  = Path(output_path).suffix
             leveled_path = f"{stem}-leveled{ext}"
@@ -926,6 +929,23 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         output_files.extend(drill_files)
         if slots_file:
             output_files.append(slots_file)
+        if probes:
+            for drl_nc in drill_files:
+                stem = str(Path(drl_nc).with_suffix(''))
+                ext  = Path(drl_nc).suffix
+                leveled = f"{stem}-leveled{ext}"
+                apply_heightmap_to_gcode(drl_nc, leveled, probes,
+                                         cfg=cfg, safe_z=cfg.DRILL_SAFE_Z_MM,
+                                         progress_cb=progress_cb)
+                output_files.append(leveled)
+            if slots_file:
+                stem = str(Path(slots_file).with_suffix(''))
+                ext  = Path(slots_file).suffix
+                leveled = f"{stem}-leveled{ext}"
+                apply_heightmap_to_gcode(slots_file, leveled, probes,
+                                         cfg=cfg, safe_z=cfg.DRILL_SAFE_Z_MM,
+                                         progress_cb=progress_cb)
+                output_files.append(leveled)
 
     _, _, board_w, board_h = copper.bounds
     (progress_cb or print)(f"\n┌─ Dimensiones del PCB ──────────────────")
