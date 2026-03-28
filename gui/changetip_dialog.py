@@ -81,14 +81,16 @@ class ChangeTipDialog(tk.Toplevel):
         jf = ttk.LabelFrame(self, text='④  Z jog')
         jf.pack(fill='x', **pad)
 
-        jog_inner = ttk.Frame(jf)
-        jog_inner.pack(pady=4)
-
-        for text, step in [('▲ 1 mm', 1.0), ('▲ 0.1 mm', 0.1)]:
-            ttk.Button(jog_inner, text=text, width=10,
+        up_frame = ttk.Frame(jf)
+        up_frame.pack(pady=(4, 1))
+        for text, step in [('▲ 10 mm', 10.0), ('▲ 1 mm', 1.0), ('▲ 0.1 mm', 0.1), ('▲ 0.01 mm', 0.01)]:
+            ttk.Button(up_frame, text=text, width=10,
                        command=lambda s=step: self._jog_z(s)).pack(side='left', padx=3)
-        for text, step in [('▼ 0.1 mm', -0.1), ('▼ 1 mm', -1.0)]:
-            ttk.Button(jog_inner, text=text, width=10,
+
+        dn_frame = ttk.Frame(jf)
+        dn_frame.pack(pady=(1, 4))
+        for text, step in [('▼ 0.01 mm', -0.01), ('▼ 0.1 mm', -0.1), ('▼ 1 mm', -1.0), ('▼ 10 mm', -10.0)]:
+            ttk.Button(dn_frame, text=text, width=10,
                        command=lambda s=step: self._jog_z(s)).pack(side='left', padx=3)
 
         # Step 5: Set Z=0
@@ -188,8 +190,9 @@ class ChangeTipDialog(tk.Toplevel):
         if not self._serial or not self._serial.is_open:
             return
         try:
-            self._serial.write(f'$J=G21 G91 Z{step:.3f} F100\n'.encode())
-            time.sleep(abs(step) / 100 * 60 + 0.2)  # wait for move to complete
+            feed = 100 if abs(step) >= 1.0 else 20
+            self._serial.write(f'$J=G21 G91 Z{step:.3f} F{feed}\n'.encode())
+            time.sleep(abs(step) / feed * 60 + 0.3)
             self._serial.flushInput()
         except Exception as e:
             messagebox.showerror('Jog error', str(e), parent=self)
