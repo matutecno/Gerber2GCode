@@ -2,6 +2,7 @@
 
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.filedialog as filedialog
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ class ParamsPanel(ttk.Frame):
         self._add_drill_section()
         self._add_slots_section()
         self._add_ref_section()
+        self._add_heightmap_section()
 
     def _labeled_entry(self, parent, label, key, row, col=0, width=12):
         ttk.Label(parent, text=label).grid(row=row, column=col*2, sticky='w', padx=(4, 2), pady=2)
@@ -127,6 +129,25 @@ class ParamsPanel(ttk.Frame):
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
 
+    def _add_heightmap_section(self):
+        lf = self._section('Height Map (autoleveling)')
+        var = tk.StringVar()
+        self._vars['HEIGHTMAP_FILE'] = var
+        ttk.Entry(lf, textvariable=var).grid(
+            row=0, column=0, columnspan=3, sticky='ew', padx=(4, 2), pady=2)
+        lf.columnconfigure(0, weight=1)
+        def browse():
+            p = filedialog.askopenfilename(
+                title='Select height map file',
+                filetypes=[('Height map', '*.xyz *.gcode'), ('All files', '*.*')]
+            )
+            if p:
+                var.set(p)
+        def clear():
+            var.set('')
+        ttk.Button(lf, text='Browse…', command=browse).grid(row=0, column=3, padx=(2, 2), pady=2)
+        ttk.Button(lf, text='✕', width=3, command=clear).grid(row=0, column=4, padx=(0, 4), pady=2)
+
     # ── Public API ────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
@@ -152,6 +173,9 @@ class ParamsPanel(ttk.Frame):
                     cfg[key] = [float(x.strip()) for x in raw.split(',') if x.strip()]
                 except ValueError:
                     cfg[key] = gerber2gcode.Config().DRILL_SIZES
+            elif key == 'HEIGHTMAP_FILE':
+                raw = var.get().strip()
+                cfg[key] = raw if raw else None
             else:
                 raw = var.get().strip()
                 try:
@@ -218,5 +242,6 @@ class ParamsPanel(ttk.Frame):
             'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
             'REF_CROSS_MM':     defaults.REF_CROSS_MM,
             'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,
+            'HEIGHTMAP_FILE':   defaults.HEIGHTMAP_FILE,
         }
         self.load_config(d)
