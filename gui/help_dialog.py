@@ -148,6 +148,57 @@ HELP_SECTIONS = [
          "Typical: 60 – 120 mm/min."),
     ]),
 
+    ("Height Map (autoleveling)", [
+        ("HEIGHTMAP_FILE",
+         "Path to a heightmap file used to correct Z height across the board surface.\n"
+         "Compensates for board warping or an unleveled spoilboard.\n"
+         "Supported formats:\n"
+         "  • .xyz  — plain text, one 'X Y Z' point per line (correction in mm).\n"
+         "  • .gcode — autoleveled export from UGS; probe points are extracted\n"
+         "             automatically.\n"
+         "Leave blank to skip height correction.\n"
+         "\n"
+         "To generate a heightmap without external software, use the\n"
+         "'Probe Heightmap' button in the toolbar. The machine must be connected\n"
+         "via USB and Z=0 must be set at the board surface before probing."),
+    ]),
+
+    ("Probe Heightmap dialog", [
+        ("Port / Baud",
+         "Serial port and baud rate for the GRBL controller.\n"
+         "Click 'Scan' to refresh the port list. Default baud rate is 115200."),
+
+        ("Grid cols / Rows",
+         "Number of probe points along X and Y axes.\n"
+         "A 5×5 grid produces 25 probe points. More points improve accuracy\n"
+         "but increase probing time. Typical: 5×5 to 10×10."),
+
+        ("X start / X end, Y start / Y end",
+         "Probing area in machine work coordinates (mm).\n"
+         "Should cover the full copper area of the board.\n"
+         "Set these to match the board dimensions and origin."),
+
+        ("Probe depth (mm)",
+         "Maximum Z distance the probe descends to find the surface (mm, negative).\n"
+         "Must be negative. Should be deeper than the largest expected warp.\n"
+         "Typical: −2.0 to −5.0 mm. The probe stops on contact regardless."),
+
+        ("Feed (mm/min)",
+         "Probing speed (mm/min) for G38.2 commands.\n"
+         "Slower speeds give more accurate results. Typical: 10 – 30 mm/min."),
+
+        ("Retract Z (mm)",
+         "Height (mm) the tool retracts to before each XY travel move.\n"
+         "Must be positive and high enough to clear the board surface.\n"
+         "Typical: 2.0 – 5.0 mm."),
+
+        ("Output file",
+         "Path where the resulting .xyz heightmap will be saved.\n"
+         "Defaults to a timestamped file in the current output directory.\n"
+         "If 'Auto-load when done' is checked, the file is automatically set\n"
+         "in the HEIGHTMAP_FILE field after probing completes."),
+    ]),
+
     ("Reference Marks", [
         ("REF_MARK_DEPTH_MM",
          "Depth of the alignment cross marks (mm, negative).\n"
