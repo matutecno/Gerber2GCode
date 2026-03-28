@@ -148,6 +148,9 @@ class ParamsPanel(ttk.Frame):
         ttk.Button(lf, text='Browse…', command=browse).grid(row=0, column=3, padx=(2, 2), pady=2)
         ttk.Button(lf, text='✕', width=3, command=clear).grid(row=0, column=4, padx=(0, 4), pady=2)
 
+    def set_heightmap(self, path: str):
+        self._vars['HEIGHTMAP_FILE'].set(path)
+
     # ── Public API ────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:

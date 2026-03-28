@@ -19,6 +19,7 @@ from gui.panels.files_panel import FilesPanel
 from gui.panels.params_panel import ParamsPanel
 from gui.help_dialog import HelpDialog
 from gui.align_dialog import AlignDialog
+from gui.probe_dialog import ProbeDialog
 
 BG_DARK = '#1e1e1e'
 BG_PANEL = '#2d2d2d'
@@ -68,6 +69,9 @@ class App:
 
         ttk.Button(tb, text='Align Drills',
                    command=self._on_align).pack(side='left', padx=(0, 6))
+
+        ttk.Button(tb, text='Probe Heightmap',
+                   command=self._on_probe).pack(side='left', padx=(0, 6))
 
         ttk.Button(tb, text='Help',
                    command=self._on_help).pack(side='left')
@@ -180,6 +184,12 @@ class App:
                     ref_txt = f
                     break
         AlignDialog(self.root, ref_txt_path=ref_txt)
+
+    def _on_probe(self):
+        output_dir = self.files_panel.get_output_dir() or str(Path.home())
+        def _loaded(xyz_path):
+            self.params_panel.set_heightmap(xyz_path)
+        ProbeDialog(self.root, output_dir=output_dir, on_done=_loaded)
 
     def _on_help(self):
         HelpDialog(self.root)
