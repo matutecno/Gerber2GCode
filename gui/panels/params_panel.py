@@ -25,6 +25,7 @@ class ParamsPanel(ttk.Frame):
         self._add_laser_section()
         self._add_drill_section()
         self._add_slots_section()
+        self._add_edge_section()
         self._add_ref_section()
         self._add_heightmap_section()
 
@@ -115,6 +116,19 @@ class ParamsPanel(ttk.Frame):
             ('SLOT_DEPTH_MM',   'SLOT_DEPTH_MM',   0, 1),
             ('SLOT_PLUNGE_RATE','SLOT_PLUNGE_RATE', 1, 0),
             ('SLOT_FEED_RATE',  'SLOT_FEED_RATE',  1, 1),
+        ]
+        for label, key, row, col in pairs:
+            self._labeled_entry(lf, label, key, row=row, col=col)
+
+    def _add_edge_section(self):
+        lf = self._section('Edge Cut (troquelado)')
+        pairs = [
+            ('EDGE_TOOL_MM',      'EDGE_TOOL_MM',      0, 0),
+            ('EDGE_DEPTH_MM',     'EDGE_DEPTH_MM',     0, 1),
+            ('EDGE_PASS_DEPTH_MM','EDGE_PASS_DEPTH_MM', 1, 0),
+            ('EDGE_FEED_RATE',    'EDGE_FEED_RATE',    1, 1),
+            ('EDGE_PLUNGE_RATE',  'EDGE_PLUNGE_RATE',  2, 0),
+            ('EDGE_SAFE_Z_MM',    'EDGE_SAFE_Z_MM',    2, 1),
         ]
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
@@ -245,6 +259,12 @@ class ParamsPanel(ttk.Frame):
             'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
             'REF_CROSS_MM':     defaults.REF_CROSS_MM,
             'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,
+            'EDGE_TOOL_MM':      defaults.EDGE_TOOL_MM,
+            'EDGE_DEPTH_MM':     defaults.EDGE_DEPTH_MM,
+            'EDGE_PASS_DEPTH_MM':defaults.EDGE_PASS_DEPTH_MM,
+            'EDGE_FEED_RATE':    defaults.EDGE_FEED_RATE,
+            'EDGE_PLUNGE_RATE':  defaults.EDGE_PLUNGE_RATE,
+            'EDGE_SAFE_Z_MM':    defaults.EDGE_SAFE_Z_MM,
             'HEIGHTMAP_FILE':   defaults.HEIGHTMAP_FILE,
         }
         self.load_config(d)

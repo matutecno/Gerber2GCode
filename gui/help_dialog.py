@@ -199,6 +199,38 @@ HELP_SECTIONS = [
          "in the HEIGHTMAP_FILE field after probing completes."),
     ]),
 
+    ("Edge Cut (troquelado)", [
+        ("EDGE_TOOL_MM",
+         "Diameter of the end-mill used for board outline cutting (mm).\n"
+         "The tool center follows a path offset outward by EDGE_TOOL_MM/2,\n"
+         "so the tool edge aligns with the board outline.\n"
+         "Typical value: 2.0 mm (standard PCB router bit)."),
+
+        ("EDGE_DEPTH_MM",
+         "Total cutting depth (mm, negative). Must be enough to cut through\n"
+         "the PCB substrate plus a small margin into the wasteboard.\n"
+         "Typical PCB thickness: 1.6 mm. Use −1.7 to −2.0 mm."),
+
+        ("EDGE_PASS_DEPTH_MM",
+         "Depth increment per pass (mm, negative).\n"
+         "The tool descends in multiple passes to avoid overloading.\n"
+         "Example: −0.5 mm with EDGE_DEPTH_MM = −1.7 → 4 passes at\n"
+         "−0.5, −1.0, −1.5, −1.7 mm."),
+
+        ("EDGE_FEED_RATE",
+         "Horizontal cutting speed for edge routing (mm/min).\n"
+         "Use a conservative value for clean cuts: 80–150 mm/min."),
+
+        ("EDGE_PLUNGE_RATE",
+         "Vertical descent speed when plunging into the material (mm/min).\n"
+         "Keep low to avoid breaking the bit: 10–30 mm/min."),
+
+        ("EDGE_SAFE_Z_MM",
+         "Travel height between contours (mm).\n"
+         "Should clear any clamps or board edges. Typical: 2.0 mm.\n"
+         "Used for G00 rapid moves only — does not affect cut depth."),
+    ]),
+
     ("Reference Marks", [
         ("REF_MARK_DEPTH_MM",
          "Depth of the alignment cross marks (mm, negative).\n"

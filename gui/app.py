@@ -251,6 +251,7 @@ class App:
 
         config = self.params_panel.get_config()
         drl_paths = self.files_panel.get_drl_paths()
+        edge_path = self.files_panel.get_edge_path()
         output_dir = self.files_panel.get_output_dir() or str(Path(gbr).parent)
 
         self._gen_btn.configure(state='disabled')
@@ -262,6 +263,7 @@ class App:
             config=config,
             gbr_path=gbr,
             drl_paths=drl_paths,
+            edge_path=edge_path,
             output_dir=output_dir,
             queue=self._queue,
         )
@@ -317,6 +319,7 @@ class App:
         entry = {
             'id': datetime.now(timezone.utc).isoformat(),
             'gbr_path': self.files_panel.get_gbr_path(),
+            'edge_path': self.files_panel.get_edge_path(),
             'drl_paths': self.files_panel.get_drl_paths(),
             'output_dir': self.files_panel.get_output_dir(),
             'output_files': files,

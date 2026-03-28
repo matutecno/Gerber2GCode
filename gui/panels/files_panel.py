@@ -26,6 +26,18 @@ class FilesPanel(ttk.Frame):
         ttk.Button(gbr_frame, text='Browse…', command=self._browse_gbr).pack(
             side='right', padx=(2, 4), pady=4)
 
+        # ── Edge.Cuts file ────────────────────────────────────────────────
+        edge_frame = ttk.LabelFrame(self, text='Edge.Cuts outline (.gbr) — optional')
+        edge_frame.pack(fill='x', padx=6, pady=3)
+
+        self._edge_var = tk.StringVar()
+        ttk.Entry(edge_frame, textvariable=self._edge_var).pack(
+            side='left', fill='x', expand=True, padx=(4, 2), pady=4)
+        ttk.Button(edge_frame, text='Browse…', command=self._browse_edge).pack(
+            side='left', padx=(0, 2), pady=4)
+        ttk.Button(edge_frame, text='✕', width=3,
+                   command=lambda: self._edge_var.set('')).pack(side='right', padx=(0, 4), pady=4)
+
         # ── DRL files ─────────────────────────────────────────────────────
         drl_outer = ttk.LabelFrame(self, text='Drill files (.drl) — optional')
         drl_outer.pack(fill='x', padx=6, pady=3)
@@ -48,6 +60,14 @@ class FilesPanel(ttk.Frame):
             side='right', padx=(2, 4), pady=4)
 
     # ── Internals ─────────────────────────────────────────────────────────
+
+    def _browse_edge(self):
+        path = filedialog.askopenfilename(
+            title='Select Edge.Cuts Gerber',
+            filetypes=[('Gerber files', '*.gbr *.ger *.GKO *.gbl'), ('All files', '*.*')]
+        )
+        if path:
+            self._edge_var.set(path)
 
     def _browse_gbr(self):
         path = filedialog.askopenfilename(
@@ -97,6 +117,9 @@ class FilesPanel(ttk.Frame):
     def get_gbr_path(self) -> str:
         return self._gbr_var.get().strip()
 
+    def get_edge_path(self) -> str:
+        return self._edge_var.get().strip()
+
     def get_drl_paths(self) -> list:
         return [r[1].get().strip() for r in self._drl_rows if r[1].get().strip()]
 
@@ -110,6 +133,8 @@ class FilesPanel(ttk.Frame):
         """Set paths from a history entry dict."""
         if d.get('gbr_path'):
             self._gbr_var.set(d['gbr_path'])
+        if d.get('edge_path'):
+            self._edge_var.set(d['edge_path'])
         if d.get('output_dir'):
             self._out_var.set(d['output_dir'])
         # Clear existing DRL rows

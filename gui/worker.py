@@ -20,11 +20,12 @@ class GenerationWorker(threading.Thread):
     """
 
     def __init__(self, config: dict, gbr_path: str, drl_paths: list,
-                 output_dir: str, queue: Queue):
+                 output_dir: str, queue: Queue, edge_path: str = None):
         super().__init__(daemon=True)
         self.config = config
         self.gbr_path = gbr_path
         self.drl_paths = drl_paths or []
+        self.edge_path = edge_path or ''
         self.output_dir = output_dir
         self.queue = queue
 
@@ -54,6 +55,7 @@ class GenerationWorker(threading.Thread):
                 gbr_path=self.gbr_path,
                 output_path=output_path,
                 drl_paths=self.drl_paths,
+                edge_path=self.edge_path or None,
                 cfg=cfg,
                 progress_cb=progress_cb,
             )
