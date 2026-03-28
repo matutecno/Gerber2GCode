@@ -336,24 +336,28 @@ class ProbeDialog(tk.Toplevel):
         raise TimeoutError('Timeout waiting for probe result')
 
     def _check_probe_connected(self, timeout=10):
-        """Probes 0.02 mm down from Z=0 to verify circuit continuity.
+        """Probes 0.02 mm down (relative) to verify circuit continuity.
         Returns True if triggered (:1), False if no contact (:0)."""
-        self._serial.write(b'G38.2 Z-0.02 F5\n')
-        deadline = time.time() + timeout
-        triggered = None
-        while time.time() < deadline:
-            line = self._serial.readline().decode('ascii', errors='ignore').strip()
-            if line.startswith('[PRB:'):
-                triggered = ':1]' in line
-            elif line == 'ok':
-                if triggered is None:
-                    raise RuntimeError('No PRB response during connectivity check')
-                return triggered
-            elif line.startswith('error'):
-                raise RuntimeError(f'Probe error during connectivity check: {line}')
-            elif line.startswith('ALARM'):
-                raise RuntimeError('GRBL ALARM during connectivity check')
-        raise TimeoutError('Timeout during probe connectivity check')
+        self._grbl_cmd('G91')  # relative mode
+        try:
+            self._serial.write(b'G38.2 Z-0.02 F5\n')
+            deadline = time.time() + timeout
+            triggered = None
+            while time.time() < deadline:
+                line = self._serial.readline().decode('ascii', errors='ignore').strip()
+                if line.startswith('[PRB:'):
+                    triggered = ':1]' in line
+                elif line == 'ok':
+                    if triggered is None:
+                        raise RuntimeError('No PRB response during connectivity check')
+                    return triggered
+                elif line.startswith('error'):
+                    raise RuntimeError(f'Probe error during connectivity check: {line}')
+                elif line.startswith('ALARM'):
+                    raise RuntimeError('GRBL ALARM during connectivity check')
+            raise TimeoutError('Timeout during probe connectivity check')
+        finally:
+            self._grbl_cmd('G90')  # always restore absolute mode
 
     def _grbl_get_wco(self, timeout=5):
         self._serial.write(b'$#\n')
