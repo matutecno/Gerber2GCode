@@ -264,9 +264,9 @@ class ProbeDialog(tk.Toplevel):
                     self._ui_log('Stopped by user.\n')
                     break
 
-                self._grbl_cmd(f'G0 X{x:.3f} Y{y:.3f}')
+                self._grbl_cmd(f'G0 X{x:.3f} Y{y:.3f}')  # viaje XY a safe_z
                 self._grbl_cmd('G4 P0')
-                self._grbl_cmd(f'G0 Z{retract:.3f}')
+                self._grbl_cmd(f'G0 Z{retract:.3f}')       # bajar a altura de sondeo
                 self._grbl_cmd('G4 P0')
                 self._ui_log(f'Probing ({x:.2f}, {y:.2f})... ')
 
@@ -275,7 +275,7 @@ class ProbeDialog(tk.Toplevel):
                 results.append((x, y, wz))
                 self._ui_log(f'Z = {wz:.4f}\n')
 
-                self._grbl_cmd(f'G0 Z{retract:.3f}')
+                self._grbl_cmd(f'G0 Z{safe_z:.3f}')        # subir a safe_z para el próximo XY
                 self._grbl_cmd('G4 P0')
 
                 progress = (i + 1) / total * 100
