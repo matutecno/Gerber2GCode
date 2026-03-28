@@ -242,6 +242,9 @@ class ProbeDialog(tk.Toplevel):
         results = []
         total = len(points)
         try:
+            wco = self._grbl_get_wco()
+            self._ui_log(f'WCO G54: X={wco[0]:.3f} Y={wco[1]:.3f} Z={wco[2]:.3f}\n')
+
             for i, (x, y) in enumerate(points):
                 if self._stop_flag.is_set():
                     self._ui_log('Stopped by user.\n')
@@ -251,14 +254,9 @@ class ProbeDialog(tk.Toplevel):
                 self._grbl_cmd(f'G0 X{x:.3f} Y{y:.3f}')
                 self._ui_log(f'Probing ({x:.2f}, {y:.2f})... ')
 
-                self._grbl_probe(f'G38.2 Z{probe_z:.3f} F{feed:.0f}')
-
-                wpos = self._grbl_wpos()
-                if wpos is None:
-                    self._ui_log('ERROR: could not read position\n')
-                    break
-                wx, wy, wz = wpos
-                results.append((wx, wy, wz))
+                mx, my, mz = self._grbl_probe(f'G38.2 Z{probe_z:.3f} F{feed:.0f}')
+                wz = mz - wco[2]
+                results.append((x, y, wz))
                 self._ui_log(f'Z = {wz:.4f}\n')
 
                 self._grbl_cmd(f'G0 Z{retract:.3f}')
@@ -296,28 +294,40 @@ class ProbeDialog(tk.Toplevel):
     def _grbl_probe(self, cmd, timeout=60):
         self._serial.write((cmd + '\n').encode())
         deadline = time.time() + timeout
+        prb = None
         while time.time() < deadline:
             line = self._serial.readline().decode('ascii', errors='ignore').strip()
             if line.startswith('[PRB:'):
                 if ':0]' in line:
                     raise RuntimeError('Probe did not trigger (no contact)')
+                m = re.search(r'\[PRB:([-\d.]+),([-\d.]+),([-\d.]+):', line)
+                if m:
+                    prb = (float(m.group(1)), float(m.group(2)), float(m.group(3)))
             elif line == 'ok':
-                return
+                if prb is None:
+                    raise RuntimeError('No PRB coordinates in probe response')
+                return prb
             elif line.startswith('error'):
                 raise RuntimeError(f'Probe error: {line}')
             elif line.startswith('ALARM'):
                 raise RuntimeError('GRBL ALARM during probe')
         raise TimeoutError('Timeout waiting for probe result')
 
-    def _grbl_wpos(self, timeout=5):
-        self._serial.write(b'?')
+    def _grbl_get_wco(self, timeout=5):
+        self._serial.write(b'$#\n')
         deadline = time.time() + timeout
+        wco = None
         while time.time() < deadline:
             line = self._serial.readline().decode('ascii', errors='ignore').strip()
-            m = re.search(r'WPos:([-\d.]+),([-\d.]+),([-\d.]+)', line)
-            if m:
-                return float(m.group(1)), float(m.group(2)), float(m.group(3))
-        return None
+            if line.startswith('[G54:'):
+                m = re.search(r'\[G54:([-\d.]+),([-\d.]+),([-\d.]+)\]', line)
+                if m:
+                    wco = (float(m.group(1)), float(m.group(2)), float(m.group(3)))
+            elif line == 'ok':
+                if wco is not None:
+                    return wco
+                raise RuntimeError('G54 offset not found in $# response')
+        raise TimeoutError('Timeout reading WCO ($#)')
 
     # ── UI helpers ────────────────────────────────────────────────────────
 
