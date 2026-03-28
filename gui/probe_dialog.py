@@ -89,7 +89,7 @@ class ProbeDialog(tk.Toplevel):
         ttk.Entry(pf, textvariable=self._feed_var, width=8).grid(row=3, column=3, sticky='w')
 
         ttk.Label(pf, text='Retract Z (mm)').grid(row=4, column=0, sticky='e', padx=(4, 2), pady=3)
-        self._retract_var = tk.StringVar(value='1')
+        self._retract_var = tk.StringVar(value='3')
         ttk.Entry(pf, textvariable=self._retract_var, width=8).grid(row=4, column=1, sticky='w', padx=(0, 12))
 
         # Output
@@ -241,17 +241,25 @@ class ProbeDialog(tk.Toplevel):
     def _probe_worker(self, points, retract, probe_z, feed, out_path):
         results = []
         total = len(points)
+        safe_z = max(retract, 5.0)
         try:
+            self._grbl_cmd('G21 G90')   # mm, absolute
             wco = self._grbl_get_wco()
             self._ui_log(f'WCO G54: X={wco[0]:.3f} Y={wco[1]:.3f} Z={wco[2]:.3f}\n')
+
+            # Raise to safe height before any XY travel
+            self._grbl_cmd(f'G0 Z{safe_z:.3f}')
+            self._grbl_cmd('G4 P0')
 
             for i, (x, y) in enumerate(points):
                 if self._stop_flag.is_set():
                     self._ui_log('Stopped by user.\n')
                     break
 
-                self._grbl_cmd(f'G0 Z{retract:.3f}')
                 self._grbl_cmd(f'G0 X{x:.3f} Y{y:.3f}')
+                self._grbl_cmd('G4 P0')
+                self._grbl_cmd(f'G0 Z{retract:.3f}')
+                self._grbl_cmd('G4 P0')
                 self._ui_log(f'Probing ({x:.2f}, {y:.2f})... ')
 
                 mx, my, mz = self._grbl_probe(f'G38.2 Z{probe_z:.3f} F{feed:.0f}')
@@ -260,11 +268,13 @@ class ProbeDialog(tk.Toplevel):
                 self._ui_log(f'Z = {wz:.4f}\n')
 
                 self._grbl_cmd(f'G0 Z{retract:.3f}')
+                self._grbl_cmd('G4 P0')
 
                 progress = (i + 1) / total * 100
                 self.after(0, lambda p=progress: self._progress.configure(value=p))
 
-            self._grbl_cmd(f'G0 Z{retract:.3f}')
+            self._grbl_cmd(f'G0 Z{safe_z:.3f}')
+            self._grbl_cmd('G4 P0')
             self._grbl_cmd('G0 X0 Y0')
             self._ui_log('Returned to origin.\n')
 
