@@ -238,24 +238,6 @@ HELP_SECTIONS = [
          "Used for G00 rapid moves only — does not affect cut depth."),
     ]),
 
-    ("Reference Marks", [
-        ("REF_MARK_DEPTH_MM",
-         "Depth of the alignment cross marks (mm, negative).\n"
-         "These are shallow visual marks engraved outside the board outline\n"
-         "to help realign the board for double-sided work or drilling.\n"
-         "Typical: −0.10 to −0.20 mm (just enough to be visible)."),
-
-        ("REF_CROSS_MM",
-         "Total arm length of each '+' reference cross (mm).\n"
-         "A value of 3.0 mm produces a cross with 1.5 mm arms in each direction.\n"
-         "Make it large enough to be visible and measurable with calipers."),
-
-        ("REF_OFFSET_MM",
-         "Distance (mm) from the PCB edge to the center of each cross.\n"
-         "0.0 places the crosses exactly at the board corner.\n"
-         "A positive value moves them outside the board boundary, keeping\n"
-         "them clear of the copper area."),
-    ]),
 ]
 
 

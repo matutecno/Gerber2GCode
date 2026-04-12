@@ -206,26 +206,50 @@ class App:
         output_dir = self.files_panel.get_output_dir()
         gbr = self.files_panel.get_gbr_path()
         if not output_dir and gbr:
-            output_dir = str(Path(gbr).parent)
-        if not output_dir:
-            messagebox.showerror('Clean Project', 'No output directory set.', parent=self.root)
+            output_dir = str(Path(gbr).parent.parent / 'Outputs')
+
+        # Output files (.nc, .xyz)
+        targets_out = []
+        if output_dir and Path(output_dir).is_dir():
+            targets_out = (list(Path(output_dir).glob('*.nc')) +
+                           list(Path(output_dir).glob('*.xyz')))
+
+        # Gerber files: derive folder from gbr path, or sibling of output_dir
+        gbr_dir = None
+        if gbr and Path(gbr).exists():
+            gbr_dir = Path(gbr).parent
+        elif output_dir:
+            candidate = Path(output_dir).parent / 'Gerbers'
+            if candidate.is_dir():
+                gbr_dir = candidate
+
+        targets_gbr = []
+        if gbr_dir:
+            for ext in ('*.gbr', '*.ger', '*.drl', '*.gbrjob'):
+                targets_gbr += list(gbr_dir.glob(ext))
+
+        all_targets = targets_out + targets_gbr
+        if not all_targets:
+            messagebox.showinfo('Clean Project', 'No files to delete.', parent=self.root)
             return
 
-        targets = list(Path(output_dir).glob('*.nc')) + list(Path(output_dir).glob('*.xyz'))
-        if not targets:
-            messagebox.showinfo('Clean Project', 'No .nc or .xyz files found.', parent=self.root)
-            return
+        lines = []
+        if targets_out:
+            lines.append(f'Outputs ({output_dir}):')
+            lines += [f'  {f.name}' for f in sorted(targets_out)]
+        if targets_gbr:
+            lines.append(f'Gerbers ({gbr_dir}):')
+            lines += [f'  {f.name}' for f in sorted(targets_gbr)]
 
-        names = '\n'.join(f.name for f in sorted(targets))
         if not messagebox.askyesno(
             'Clean Project',
-            f'Delete {len(targets)} file(s) from:\n{output_dir}\n\n{names}',
+            f'Delete {len(all_targets)} file(s)?\n\n' + '\n'.join(lines),
             parent=self.root,
         ):
             return
 
         deleted, failed = 0, []
-        for f in targets:
+        for f in all_targets:
             try:
                 f.unlink()
                 deleted += 1

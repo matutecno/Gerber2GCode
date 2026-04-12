@@ -44,7 +44,7 @@ class Config:
     VBIT_TIP_MM: float       = 0.1     # diámetro de la punta de la V-bit (mm)
     VBIT_ANGLE_DEG: float    = 20      # ángulo total de la V-bit (grados)
     PASS_OVERLAP_FRAC: float = 0.3     # solapado entre pasadas
-    CUT_DEPTH_MM: float      = -0.06   # profundidad de corte (Z negativo)
+    CUT_DEPTH_MM: float      = -0.08   # profundidad de corte (Z negativo)
     PLUNGE_RATE: float       = 80      # velocidad de bajada (mm/min)
     FEED_RATE: float         = 350     # velocidad de corte (mm/min)
     OVERSHOOT_MM: float      = 1.0     # sobreextensión al cierre de cada contorno (mm)
@@ -55,31 +55,26 @@ class Config:
     LASER_PASS_MM: float     = 0.05    # distancia entre pasadas concéntricas (mm)
 
     # CONFIG TALADRADO
-    DRILL_SIZES: List[float] = field(default_factory=lambda: [0.8, 1.0, 1.25, 3.0])
+    DRILL_SIZES: List[float] = field(default_factory=lambda: [0.8, 1.0, 1.25])
     DRILL_SAFE_Z_MM: float   = 1.0     # altura de viaje segura
-    DRILL_DEPTH_MM: float    = -1.6    # profundidad de taladrado (Z negativo)
-    DRILL_FEED_RATE: float   = 20      # velocidad de taladrado (mm/min)
-
-    # CONFIG MARCAS DE REFERENCIA
-    REF_MARK_DEPTH_MM: float = -0.06   # profundidad de corte de la cruz (solo visible, no pasante)
-    REF_CROSS_MM: float      = 3.0     # longitud total del brazo de la cruz "+" (mm)
-    REF_OFFSET_MM: float     = 0       # distancia desde el borde del PCB al centro de la cruz (mm)
+    DRILL_DEPTH_MM: float    = -1.75    # profundidad de taladrado (Z negativo)
+    DRILL_FEED_RATE: float   = 30      # velocidad de taladrado (mm/min)
 
     # CONFIG RANURAS
     SLOT_TOOL_MM: float      = 1     # diámetro real de la fresa usada para ranuras
     SLOT_DEPTH_MM: float     = -1.6    # profundidad de ranuras (Z negativo)
     SLOT_PLUNGE_RATE: float   = 10      # velocidad de bajada en ranuras (mm/min)
-    SLOT_FEED_RATE: float     = 10      # velocidad de corte en ranuras (mm/min)
-    SLOT_PASS_DEPTH_MM: float = -0.5   # profundidad por pasada (Z negativo); igual a SLOT_DEPTH_MM = pasada única
+    SLOT_FEED_RATE: float     = 15      # velocidad de corte en ranuras (mm/min)
+    SLOT_PASS_DEPTH_MM: float = -0.6   # profundidad por pasada (Z negativo); igual a SLOT_DEPTH_MM = pasada única
 
     # CONFIG MAPA DE ALTURAS
     HEIGHTMAP_FILE: Optional[str] = None  # ruta al .gcode autoleveled de UGS
 
     # CONFIG TROQUELADO (corte del contorno externo)
     EDGE_TOOL_MM: float       = 2.0    # diámetro de la fresa de troquelado (mm)
-    EDGE_DEPTH_MM: float      = -1.7   # profundidad total de corte (Z negativo, debe atravesar la PCB)
-    EDGE_PASS_DEPTH_MM: float = -0.5   # profundidad por pasada (Z negativo)
-    EDGE_FEED_RATE: float     = 20     # velocidad de corte horizontal (mm/min)
+    EDGE_DEPTH_MM: float      = -1.75   # profundidad total de corte (Z negativo, debe atravesar la PCB)
+    EDGE_PASS_DEPTH_MM: float = -0.6   # profundidad por pasada (Z negativo)
+    EDGE_FEED_RATE: float     = 30     # velocidad de corte horizontal (mm/min)
     EDGE_PLUNGE_RATE: float   = 20     # velocidad de bajada (mm/min)
     EDGE_SAFE_Z_MM: float     = 3.0    # altura de viaje segura (mm)
 
@@ -106,9 +101,6 @@ DRILL_SIZES       = _default_cfg.DRILL_SIZES
 DRILL_SAFE_Z_MM   = _default_cfg.DRILL_SAFE_Z_MM
 DRILL_DEPTH_MM    = _default_cfg.DRILL_DEPTH_MM
 DRILL_FEED_RATE   = _default_cfg.DRILL_FEED_RATE
-REF_MARK_DEPTH_MM = _default_cfg.REF_MARK_DEPTH_MM
-REF_CROSS_MM      = _default_cfg.REF_CROSS_MM
-REF_OFFSET_MM     = _default_cfg.REF_OFFSET_MM
 SLOT_TOOL_MM      = _default_cfg.SLOT_TOOL_MM
 SLOT_DEPTH_MM     = _default_cfg.SLOT_DEPTH_MM
 SLOT_PLUNGE_RATE  = _default_cfg.SLOT_PLUNGE_RATE
@@ -277,7 +269,6 @@ def compute_mill_paths(copper_geom, tool_radius: float, clearance: float,
 
 
 def generate_mill_gcode(paths: list, output_path: str, clearance: float,
-                        board_w: float = None, board_h: float = None,
                         cfg: Config = None, progress_cb=None):
     """G-code para fresa, compatible con GRBL."""
     if cfg is None:
@@ -294,11 +285,6 @@ def generate_mill_gcode(paths: list, output_path: str, clearance: float,
     ]
     if cfg.SPINDLE_ON:
         lines.append("S10000 M03")
-    if board_w is not None and board_h is not None:
-        lines.append("( ── MARCAS DE REFERENCIA ── )")
-        lines += _cross_gcode(-cfg.REF_OFFSET_MM, -cfg.REF_OFFSET_MM, "Ref 1 — inferior-izquierda", cfg)
-        lines += _cross_gcode(board_w + cfg.REF_OFFSET_MM, board_h + cfg.REF_OFFSET_MM, "Ref 2 — superior-derecha", cfg)
-        lines.append("( ── FRESADO ── )")
     for path in paths:
         if len(path) < 2:
             continue
@@ -543,70 +529,6 @@ def generate_laser_gcode(paths: list, output_path: str, cfg: Config = None, prog
     with open(output_path, "w") as f:
         f.write("\n".join(lines) + "\n")
     (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
-
-
-# ─────────────────────────────────────────────
-# MARCAS DE REFERENCIA
-# ─────────────────────────────────────────────
-
-def _cross_gcode(cx: float, cy: float, label: str, cfg: Config = None) -> list:
-    """Genera las líneas G-code para una cruz '+' centrada en (cx, cy)."""
-    if cfg is None:
-        cfg = Config()
-    arm = cfg.REF_CROSS_MM / 2.0
-    return [
-        f"( {label} — cruz en ({cx:.3f}, {cy:.3f}) )",
-        f"G00 X{cx - arm:.3f} Y{cy:.3f}",
-        f"G01 F{cfg.PLUNGE_RATE} Z{cfg.REF_MARK_DEPTH_MM:.3f}",
-        f"G01 F{cfg.FEED_RATE} X{cx + arm:.3f} Y{cy:.3f}",
-        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
-        f"G00 X{cx:.3f} Y{cy - arm:.3f}",
-        f"G01 F{cfg.PLUNGE_RATE} Z{cfg.REF_MARK_DEPTH_MM:.3f}",
-        f"G01 F{cfg.FEED_RATE} X{cx:.3f} Y{cy + arm:.3f}",
-        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
-    ]
-
-
-def generate_ref_marks(board_w: float, board_h: float, output_stem: str, cfg: Config = None):
-    """
-    Genera dos marcas de referencia en cruz '+' (REF_CROSS_MM) con V-bit.
-    """
-    if cfg is None:
-        cfg = Config()
-    nc_path  = f"{output_stem}-ref.nc"
-    txt_path = f"{output_stem}-ref.txt"
-
-    o   = cfg.REF_OFFSET_MM
-    c1x, c1y = -o,           -o
-    c2x, c2y =  board_w + o,  board_h + o
-
-    lines = [
-        "( Generated by gerber2gcode.py — REFERENCE MARKS )",
-        f"( Cruz '+' de {cfg.REF_CROSS_MM:.1f} mm, offset {cfg.REF_OFFSET_MM:.1f} mm desde bordes del PCB )",
-        f"( P1 = ({c1x:.3f}, {c1y:.3f})  —  inferior-izquierda )",
-        f"( P2 = ({c2x:.3f}, {c2y:.3f})  —  superior-derecha )",
-        "G17", "G21", "G54", "G90",
-        f"G00 Z{cfg.SAFE_Z_MM:.3f}",
-    ]
-    if cfg.SPINDLE_ON:
-        lines.append("S10000 M03")
-    lines += _cross_gcode(c1x, c1y, "Marca 1 — inferior-izquierda", cfg)
-    lines += _cross_gcode(c2x, c2y, "Marca 2 — superior-derecha", cfg)
-    lines += ["G00 X0 Y0", "M05", "M30"]
-
-    with open(nc_path, 'w') as f:
-        f.write('\n'.join(lines) + '\n')
-
-    with open(txt_path, 'w') as f:
-        f.write(f"EX1={c1x:.3f}\n")
-        f.write(f"EY1={c1y:.3f}\n")
-        f.write(f"EX2={c2x:.3f}\n")
-        f.write(f"EY2={c2y:.3f}\n")
-        f.write(f"STEM={output_stem}\n")
-
-    print(f"[ref] {nc_path}")
-    print(f"      P1=({c1x:.3f}, {c1y:.3f})  P2=({c2x:.3f}, {c2y:.3f})")
-    print(f"[ref] {txt_path}  (usar con fix_align.py)")
 
 
 # ─────────────────────────────────────────────
@@ -984,7 +906,7 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         (progress_cb or print)("[3/4] Calculando paths de fresado ...")
         paths = compute_mill_paths(copper, tool_radius, clearance, cfg=cfg, progress_cb=progress_cb)
         (progress_cb or print)(f"[4/4] Generando G-code → {output_path} ...")
-        generate_mill_gcode(paths, output_path, clearance, board_w, board_h, cfg=cfg, progress_cb=progress_cb)
+        generate_mill_gcode(paths, output_path, clearance, cfg=cfg, progress_cb=progress_cb)
         output_files.append(output_path)
         if probes:
             stem = str(Path(output_path).with_suffix(''))
@@ -1068,13 +990,12 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
     (progress_cb or print)(f"└────────────────────────────────────────\n")
 
     output_stem = str(Path(output_path).with_suffix(''))
-    o = cfg.REF_OFFSET_MM
     txt_path = f"{output_stem}-ref.txt"
     with open(txt_path, 'w') as f:
-        f.write(f"EX1={-o:.3f}\nEY1={-o:.3f}\n")
-        f.write(f"EX2={board_w + o:.3f}\nEY2={board_h + o:.3f}\n")
+        f.write(f"EX1=0.000\nEY1=0.000\n")
+        f.write(f"EX2={board_w:.3f}\nEY2={board_h:.3f}\n")
         f.write(f"STEM={output_stem}\n")
-    (progress_cb or print)(f"[ref] {txt_path}  (posiciones de cruces para fix_align.py)")
+    (progress_cb or print)(f"[ref] {txt_path}  (vértices del PCB: P1=(0,0)  P2=({board_w:.3f},{board_h:.3f}))")
     output_files.append(txt_path)
 
     (progress_cb or print)("\n✓ Listo.")

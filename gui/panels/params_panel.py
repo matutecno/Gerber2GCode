@@ -26,7 +26,6 @@ class ParamsPanel(ttk.Frame):
         self._add_drill_section()
         self._add_slots_section()
         self._add_edge_section()
-        self._add_ref_section()
         self._add_heightmap_section()
 
     def _labeled_entry(self, parent, label, key, row, col=0, width=12):
@@ -130,16 +129,6 @@ class ParamsPanel(ttk.Frame):
             ('EDGE_FEED_RATE',    'EDGE_FEED_RATE',    1, 1),
             ('EDGE_PLUNGE_RATE',  'EDGE_PLUNGE_RATE',  2, 0),
             ('EDGE_SAFE_Z_MM',    'EDGE_SAFE_Z_MM',    2, 1),
-        ]
-        for label, key, row, col in pairs:
-            self._labeled_entry(lf, label, key, row=row, col=col)
-
-    def _add_ref_section(self):
-        lf = self._section('Reference Marks')
-        pairs = [
-            ('REF_MARK_DEPTH_MM', 'REF_MARK_DEPTH_MM', 0, 0),
-            ('REF_CROSS_MM',      'REF_CROSS_MM',       0, 1),
-            ('REF_OFFSET_MM',     'REF_OFFSET_MM',      1, 0),
         ]
         for label, key, row, col in pairs:
             self._labeled_entry(lf, label, key, row=row, col=col)
@@ -258,9 +247,6 @@ class ParamsPanel(ttk.Frame):
             'SLOT_PLUNGE_RATE':   defaults.SLOT_PLUNGE_RATE,
             'SLOT_FEED_RATE':     defaults.SLOT_FEED_RATE,
             'SLOT_PASS_DEPTH_MM': defaults.SLOT_PASS_DEPTH_MM,
-            'REF_MARK_DEPTH_MM':defaults.REF_MARK_DEPTH_MM,
-            'REF_CROSS_MM':     defaults.REF_CROSS_MM,
-            'REF_OFFSET_MM':    defaults.REF_OFFSET_MM,
             'EDGE_TOOL_MM':      defaults.EDGE_TOOL_MM,
             'EDGE_DEPTH_MM':     defaults.EDGE_DEPTH_MM,
             'EDGE_PASS_DEPTH_MM':defaults.EDGE_PASS_DEPTH_MM,
