@@ -78,6 +78,11 @@ class Config:
     EDGE_PLUNGE_RATE: float   = 20     # velocidad de bajada (mm/min)
     EDGE_SAFE_Z_MM: float     = 3.0    # altura de viaje segura (mm)
 
+    # CONFIG LASER PNG EXPORT (para LaserGRBL — quema pintura/revelado químico)
+    LASER_PNG_ENABLED: bool        = False   # genera PNG negativo para LaserGRBL
+    LASER_PNG_DPI: int             = 1000    # resolución de salida (puntos por pulgada)
+    LASER_PNG_MARGIN_MM: float     = 2.0     # margen alrededor del PCB en mm
+
 
 # ─────────────────────────────────────────────
 # Legacy module-level CONFIG constants (kept for backward compat)
@@ -529,6 +534,73 @@ def generate_laser_gcode(paths: list, output_path: str, cfg: Config = None, prog
     with open(output_path, "w") as f:
         f.write("\n".join(lines) + "\n")
     (progress_cb or print)(f"    ✓ {len(lines)} líneas escritas")
+
+
+# ─────────────────────────────────────────────
+# LASER PNG EXPORT
+# ─────────────────────────────────────────────
+
+def generate_laser_png(copper_geom, board_w: float, board_h: float,
+                       cfg: Config = None, output_path: str = None,
+                       progress_cb=None):
+    """
+    Rasteriza copper_geom como PNG negativo para LaserGRBL.
+
+    Negro = láser dispara (quema pintura → zona etched)
+    Blanco = láser apagado (pintura protege el cobre)
+
+    La geometría recibida ya tiene MIRROR_X aplicado → orientación correcta
+    para placa con cobre hacia arriba.
+    """
+    from PIL import Image, ImageDraw, ImageChops
+
+    if cfg is None:
+        cfg = Config()
+
+    mm_per_px = 25.4 / cfg.LASER_PNG_DPI
+    margin_mm = cfg.LASER_PNG_MARGIN_MM
+
+    img_w_px = max(1, int(round((board_w + 2 * margin_mm) / mm_per_px)))
+    img_h_px = max(1, int(round((board_h + 2 * margin_mm) / mm_per_px)))
+
+    (progress_cb or print)(
+        f"[PNG] {board_w:.2f}×{board_h:.2f} mm → {img_w_px}×{img_h_px} px"
+        f"  ({cfg.LASER_PNG_DPI} DPI)"
+    )
+
+    img = Image.new('L', (img_w_px, img_h_px), color=0)   # acumulador: negro = sin cobre
+
+    def _px(x_mm, y_mm):
+        return (
+            (x_mm + margin_mm) / mm_per_px,
+            (board_h - y_mm + margin_mm) / mm_per_px,
+        )
+
+    def _raster_poly(poly):
+        # Cada polígono se dibuja en su propia máscara y se acumula con OR (lighter).
+        # Esto evita que el hueco de un polígono borre cobre de polígonos anteriores.
+        mask = Image.new('L', (img_w_px, img_h_px), color=0)
+        d = ImageDraw.Draw(mask)
+        d.polygon([_px(x, y) for x, y in poly.exterior.coords], fill=255)
+        for ring in poly.interiors:
+            d.polygon([_px(x, y) for x, y in ring.coords], fill=0)
+        return mask
+
+    if isinstance(copper_geom, MultiPolygon):
+        polys = list(copper_geom.geoms)
+    elif isinstance(copper_geom, Polygon):
+        polys = [copper_geom]
+    else:
+        polys = [g for g in getattr(copper_geom, 'geoms', []) if isinstance(g, Polygon)]
+
+    for poly in polys:
+        if not poly.is_empty:
+            img = ImageChops.lighter(img, _raster_poly(poly))
+
+    dpi = cfg.LASER_PNG_DPI
+    img.save(output_path, format='PNG', dpi=(dpi, dpi))
+    (progress_cb or print)(f"    ✓ PNG → {output_path}")
+    return output_path
 
 
 # ─────────────────────────────────────────────
@@ -997,6 +1069,21 @@ def run(gbr_path: str, output_path: str, drl_paths: list = None,
         f.write(f"STEM={output_stem}\n")
     (progress_cb or print)(f"[ref] {txt_path}  (vértices del PCB: P1=(0,0)  P2=({board_w:.3f},{board_h:.3f}))")
     output_files.append(txt_path)
+
+    if cfg.LASER_PNG_ENABLED:
+        _pw = int(round(board_w))
+        _ph = int(round(board_h))
+        _stem_name = Path(output_stem).name
+        png_path = str(Path(output_stem).parent / f"x{_pw}_y{_ph}_{_stem_name}-laser.png")
+        generate_laser_png(
+            copper_geom=copper,
+            board_w=board_w,
+            board_h=board_h,
+            cfg=cfg,
+            output_path=png_path,
+            progress_cb=progress_cb,
+        )
+        output_files.append(png_path)
 
     (progress_cb or print)("\n✓ Listo.")
 

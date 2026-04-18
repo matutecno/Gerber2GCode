@@ -27,6 +27,7 @@ class ParamsPanel(ttk.Frame):
         self._add_slots_section()
         self._add_edge_section()
         self._add_heightmap_section()
+        self._add_laser_png_section()
 
     def _labeled_entry(self, parent, label, key, row, col=0, width=12):
         ttk.Label(parent, text=label).grid(row=row, column=col*2, sticky='w', padx=(4, 2), pady=2)
@@ -155,6 +156,12 @@ class ParamsPanel(ttk.Frame):
     def set_heightmap(self, path: str):
         self._vars['HEIGHTMAP_FILE'].set(path)
 
+    def _add_laser_png_section(self):
+        lf = self._section('Laser PNG Export (LaserGRBL)')
+        self._labeled_check(lf, 'Enabled', 'LASER_PNG_ENABLED', row=0, col=0)
+        self._labeled_entry(lf, 'DPI',          'LASER_PNG_DPI',       row=1, col=0)
+        self._labeled_entry(lf, 'Margen (mm)',   'LASER_PNG_MARGIN_MM', row=1, col=1)
+
     # ── Public API ────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
@@ -163,7 +170,7 @@ class ParamsPanel(ttk.Frame):
         for key, var in self._vars.items():
             if key == 'MODE':
                 cfg[key] = var.get()
-            elif key in ('MIRROR_X', 'SPINDLE_ON'):
+            elif key in ('MIRROR_X', 'SPINDLE_ON', 'LASER_PNG_ENABLED'):
                 cfg[key] = bool(var.get())
             elif key == 'CLEARANCE_MM':
                 raw = var.get().strip()
@@ -204,7 +211,7 @@ class ParamsPanel(ttk.Frame):
             if key not in d:
                 continue
             val = d[key]
-            if key in ('MIRROR_X', 'SPINDLE_ON'):
+            if key in ('MIRROR_X', 'SPINDLE_ON', 'LASER_PNG_ENABLED'):
                 var.set(bool(val))
             elif key == 'CLEARANCE_MM':
                 if val is None:
@@ -253,6 +260,9 @@ class ParamsPanel(ttk.Frame):
             'EDGE_FEED_RATE':    defaults.EDGE_FEED_RATE,
             'EDGE_PLUNGE_RATE':  defaults.EDGE_PLUNGE_RATE,
             'EDGE_SAFE_Z_MM':    defaults.EDGE_SAFE_Z_MM,
-            'HEIGHTMAP_FILE':   defaults.HEIGHTMAP_FILE,
+            'HEIGHTMAP_FILE':    defaults.HEIGHTMAP_FILE,
+            'LASER_PNG_ENABLED':  defaults.LASER_PNG_ENABLED,
+            'LASER_PNG_DPI':      defaults.LASER_PNG_DPI,
+            'LASER_PNG_MARGIN_MM':defaults.LASER_PNG_MARGIN_MM,
         }
         self.load_config(d)
